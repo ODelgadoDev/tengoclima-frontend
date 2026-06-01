@@ -5,7 +5,9 @@ import { CotizacionesPage } from "../pages/CotizacionesPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LibroPage } from "../pages/LibroPage";
 import { LoginPage } from "../pages/LoginPage";
+import { PagadosPage } from "../pages/PagadosPage";
 import { PendientesPage } from "../pages/PendientesPage";
+import { ProjectDetailPage } from "../pages/ProjectDetailPage";
 import { ProyectosPage } from "../pages/ProyectosPage";
 
 export function AppRouter() {
@@ -19,6 +21,8 @@ export function AppRouter() {
           <Route path="/pendientes" element={<PendientesPage />} />
           <Route path="/cotizaciones" element={<CotizacionesPage />} />
           <Route path="/proyectos" element={<ProyectosPage />} />
+          <Route path="/proyectos/:id" element={<ProjectDetailPage />} />
+          <Route path="/pagados" element={<PagadosPage />} />
           <Route path="/cobros" element={<CobrosPage />} />
           <Route path="/libro" element={<LibroPage />} />
         </Route>

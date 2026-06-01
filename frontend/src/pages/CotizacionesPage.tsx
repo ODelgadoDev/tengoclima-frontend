@@ -1,25 +1,93 @@
-import { Plus, Save, Trash2, UploadCloud } from "lucide-react";
-import { useState } from "react";
+import {
+  Calculator,
+  FileText,
+  ImagePlus,
+  Plus,
+  RefreshCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import type {
+  TipoProyecto,
+  TipoServicio,
+  UnidadConcepto,
+} from "../types/project";
 
 type ConceptoCotizacion = {
   id: number;
   descripcion: string;
-  unidad: "PZA" | "ML" | "M2" | "SERV" | "PAQ";
+  unidad: UnidadConcepto;
   cantidad: number;
   precioUnitario: number;
 };
 
+const unidades: UnidadConcepto[] = ["PZA", "ML", "M2", "SERV", "PAQ"];
+
+const tiposServicio: TipoServicio[] = [
+  "Climatización HVAC",
+  "Paneles solares",
+  "Mantenimiento",
+  "Obra / instalación",
+  "Sistema especial",
+  "Calentador",
+  "Mixto",
+];
+
+const tiposProyecto: TipoProyecto[] = [
+  "Residencial",
+  "Comercial",
+  "Industrial",
+  "Local",
+  "Exterior",
+];
+
+function generarCodigoCotizacion(nombre: string) {
+  const fecha = new Date();
+
+  const iniciales =
+    nombre
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((palabra) => palabra[0]?.toUpperCase())
+      .join("") || "TC";
+
+  const dia = String(fecha.getDate()).padStart(2, "0");
+
+  const meses = [
+    "ENE",
+    "FEB",
+    "MAR",
+    "ABR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AGO",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DIC",
+  ];
+
+  const mes = meses[fecha.getMonth()];
+  const anio = fecha.getFullYear();
+
+  return `${iniciales}${dia}${mes}${anio}`;
+}
+
 const conceptosIniciales: ConceptoCotizacion[] = [
   {
     id: 1,
-    descripcion: "Instalación de minisplit 1 tonelada",
+    descripcion: "Instalación de equipo minisplit",
     unidad: "SERV",
     cantidad: 1,
     precioUnitario: 2500,
   },
   {
     id: 2,
-    descripcion: "Tubería de cobre",
+    descripcion: "Tubería de cobre para instalación",
     unidad: "ML",
     cantidad: 5,
     precioUnitario: 180,
@@ -27,13 +95,36 @@ const conceptosIniciales: ConceptoCotizacion[] = [
 ];
 
 export function CotizacionesPage() {
+  const [solicitante, setSolicitante] = useState("");
+  const [empresa, setEmpresa] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [tipoServicio, setTipoServicio] =
+    useState<TipoServicio>("Climatización HVAC");
+  const [tipoProyecto, setTipoProyecto] =
+    useState<TipoProyecto>("Residencial");
+  const [tiempoEstimado, setTiempoEstimado] = useState("");
+  const [descuento, setDescuento] = useState(0);
+  const [anticipo, setAnticipo] = useState(0);
   const [conceptos, setConceptos] =
     useState<ConceptoCotizacion[]>(conceptosIniciales);
 
-  const totalCotizacion = conceptos.reduce(
-    (total, concepto) => total + concepto.cantidad * concepto.precioUnitario,
-    0
+  const codigoCotizacion = useMemo(
+    () => generarCodigoCotizacion(solicitante),
+    [solicitante]
   );
+
+  const subtotal = useMemo(() => {
+    return conceptos.reduce((total, concepto) => {
+      return total + concepto.cantidad * concepto.precioUnitario;
+    }, 0);
+  }, [conceptos]);
+
+  const iva = subtotal * 0.16;
+  const totalAntesDescuento = subtotal + iva;
+  const totalFinal = Math.max(totalAntesDescuento - descuento, 0);
+  const saldoPendiente = Math.max(totalFinal - anticipo, 0);
 
   const agregarConcepto = () => {
     const nuevoConcepto: ConceptoCotizacion = {
@@ -44,11 +135,13 @@ export function CotizacionesPage() {
       precioUnitario: 0,
     };
 
-    setConceptos([...conceptos, nuevoConcepto]);
+    setConceptos((actuales) => [...actuales, nuevoConcepto]);
   };
 
   const eliminarConcepto = (id: number) => {
-    setConceptos(conceptos.filter((concepto) => concepto.id !== id));
+    setConceptos((actuales) =>
+      actuales.filter((concepto) => concepto.id !== id)
+    );
   };
 
   const actualizarConcepto = (
@@ -56,8 +149,8 @@ export function CotizacionesPage() {
     campo: keyof ConceptoCotizacion,
     valor: string | number
   ) => {
-    setConceptos(
-      conceptos.map((concepto) =>
+    setConceptos((actuales) =>
+      actuales.map((concepto) =>
         concepto.id === id
           ? {
               ...concepto,
@@ -65,6 +158,26 @@ export function CotizacionesPage() {
             }
           : concepto
       )
+    );
+  };
+
+  const limpiarFormulario = () => {
+    setSolicitante("");
+    setEmpresa("");
+    setTelefono("");
+    setDireccion("");
+    setDescripcion("");
+    setTipoServicio("Climatización HVAC");
+    setTipoProyecto("Residencial");
+    setTiempoEstimado("");
+    setDescuento(0);
+    setAnticipo(0);
+    setConceptos(conceptosIniciales);
+  };
+
+  const guardarCotizacion = () => {
+    alert(
+      `Cotización ${codigoCotizacion} generada correctamente.\n\nCuando conectemos Django, aquí se guardará en la base de datos.`
     );
   };
 
@@ -76,43 +189,56 @@ export function CotizacionesPage() {
             Nueva cotización
           </h2>
           <p className="text-slate-500">
-            Registro de cliente potencial, descripción del trabajo, conceptos y
-            evidencia inicial.
+            Registro inicial de proyectos pendientes para TENGOCLIMA.
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <button className="rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] hover:bg-[#E8F1F5] transition">
-            Guardar borrador
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={limpiarFormulario}
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] hover:bg-[#E8F1F5] transition"
+          >
+            <RefreshCcw size={18} />
+            Limpiar
           </button>
 
-          <button className="flex items-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white hover:bg-[#FF9A3D] transition shadow-sm">
+          <button
+            onClick={guardarCotizacion}
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white hover:bg-[#FF9A3D] transition shadow-sm"
+          >
             <Save size={18} />
             Guardar cotización
           </button>
         </div>
       </div>
 
-      <section className="mt-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <form className="xl:col-span-2 space-y-6">
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h3 className="text-lg font-black text-[#17445A]">
-                Datos del solicitante
-              </h3>
-              <p className="text-sm text-slate-500">
-                Información básica del cliente potencial.
-              </p>
+      <section className="mt-6 grid grid-cols-1 2xl:grid-cols-[1fr_420px] gap-6">
+        <div className="space-y-6">
+          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
+              <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
+                <FileText size={22} />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-[#17445A]">
+                  Datos del solicitante
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Información principal del cliente o empresa.
+                </p>
+              </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-bold text-[#17445A]">
                   Solicitante
                 </label>
                 <input
-                  type="text"
-                  placeholder="Nombre del cliente"
+                  value={solicitante}
+                  onChange={(event) => setSolicitante(event.target.value)}
+                  placeholder="Ej. Roberto Martínez"
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
@@ -122,8 +248,9 @@ export function CotizacionesPage() {
                   Empresa
                 </label>
                 <input
-                  type="text"
-                  placeholder="Empresa o negocio"
+                  value={empresa}
+                  onChange={(event) => setEmpresa(event.target.value)}
+                  placeholder="Ej. Residencial Campestre"
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
@@ -133,58 +260,60 @@ export function CotizacionesPage() {
                   Teléfono
                 </label>
                 <input
-                  type="text"
-                  placeholder="614 000 0000"
+                  value={telefono}
+                  onChange={(event) => setTelefono(event.target.value)}
+                  placeholder="Ej. 614 000 0000"
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Código identificador
-                </label>
-                <input
-                  type="text"
-                  value="ROB07MAR2026"
-                  readOnly
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-slate-500 outline-none"
-                />
-              </div>
-
-              <div className="md:col-span-2">
                 <label className="text-sm font-bold text-[#17445A]">
                   Dirección
                 </label>
                 <input
-                  type="text"
-                  placeholder="Dirección del servicio o proyecto"
+                  value={direccion}
+                  onChange={(event) => setDireccion(event.target.value)}
+                  placeholder="Ej. Chihuahua, Chih."
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
             </div>
-          </div>
+          </article>
 
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h3 className="text-lg font-black text-[#17445A]">
-                Información del proyecto
-              </h3>
-              <p className="text-sm text-slate-500">
-                Clasificación y descripción general del trabajo solicitado.
-              </p>
+          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
+              <div className="rounded-xl bg-[#FFF0E3] p-3 text-[#F5822A]">
+                <Calculator size={22} />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-[#17445A]">
+                  Información del proyecto
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Clasificación, descripción y estimación inicial.
+                </p>
+              </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-bold text-[#17445A]">
                   Tipo de servicio
                 </label>
-                <select className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]">
-                  <option>Climatización HVAC</option>
-                  <option>Paneles solares</option>
-                  <option>Obra / instalación</option>
-                  <option>Mantenimiento</option>
-                  <option>Mixto</option>
+                <select
+                  value={tipoServicio}
+                  onChange={(event) =>
+                    setTipoServicio(event.target.value as TipoServicio)
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                >
+                  {tiposServicio.map((servicio) => (
+                    <option key={servicio} value={servicio}>
+                      {servicio}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -192,12 +321,18 @@ export function CotizacionesPage() {
                 <label className="text-sm font-bold text-[#17445A]">
                   Tipo de proyecto
                 </label>
-                <select className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]">
-                  <option>Local</option>
-                  <option>Exterior</option>
-                  <option>Residencial</option>
-                  <option>Comercial</option>
-                  <option>Industrial</option>
+                <select
+                  value={tipoProyecto}
+                  onChange={(event) =>
+                    setTipoProyecto(event.target.value as TipoProyecto)
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                >
+                  {tiposProyecto.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -206,50 +341,40 @@ export function CotizacionesPage() {
                   Tiempo estimado
                 </label>
                 <input
-                  type="text"
-                  placeholder="Ej. 3 días, 1 semana, 15 días"
+                  value={tiempoEstimado}
+                  onChange={(event) => setTiempoEstimado(event.target.value)}
+                  placeholder="Ej. 3 días"
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Estado inicial
-                </label>
-                <select className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]">
-                  <option>Pendiente</option>
-                  <option>En revisión</option>
-                  <option>Autorizada</option>
-                  <option>No autorizada</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm font-bold text-[#17445A]">
-                  Descripción del trabajo
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="Describe el trabajo solicitado por el cliente..."
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="mt-4">
+              <label className="text-sm font-bold text-[#17445A]">
+                Descripción del proyecto
+              </label>
+              <textarea
+                value={descripcion}
+                onChange={(event) => setDescripcion(event.target.value)}
+                placeholder="Describe el trabajo solicitado, condiciones del lugar, necesidades del cliente o detalles importantes."
+                rows={4}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+              />
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-4">
               <div>
                 <h3 className="text-lg font-black text-[#17445A]">
                   Conceptos de cotización
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Puntos, unidades, cantidades y precios del proyecto.
+                  Materiales, servicios, mano de obra o paquetes incluidos.
                 </p>
               </div>
 
               <button
-                type="button"
                 onClick={agregarConcepto}
                 className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-2 text-sm font-bold text-white hover:bg-[#17445A] transition"
               >
@@ -258,32 +383,28 @@ export function CotizacionesPage() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="mt-5 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-[#E8F1F5] text-[#17445A]">
                   <tr>
-                    <th className="text-left p-4">Descripción</th>
-                    <th className="text-left p-4">Unidad</th>
-                    <th className="text-right p-4">Cantidad</th>
-                    <th className="text-right p-4">Precio unitario</th>
-                    <th className="text-right p-4">Total</th>
-                    <th className="text-center p-4">Acción</th>
+                    <th className="text-left p-3">Descripción</th>
+                    <th className="text-left p-3">Unidad</th>
+                    <th className="text-right p-3">Cantidad</th>
+                    <th className="text-right p-3">Precio unitario</th>
+                    <th className="text-right p-3">Importe</th>
+                    <th className="text-center p-3">Acción</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {conceptos.map((concepto) => {
-                    const total =
+                    const importe =
                       concepto.cantidad * concepto.precioUnitario;
 
                     return (
-                      <tr
-                        key={concepto.id}
-                        className="border-t border-slate-100"
-                      >
-                        <td className="p-3 min-w-72">
+                      <tr key={concepto.id} className="border-t border-slate-100">
+                        <td className="p-3 min-w-[260px]">
                           <input
-                            type="text"
                             value={concepto.descripcion}
                             onChange={(event) =>
                               actualizarConcepto(
@@ -293,36 +414,35 @@ export function CotizacionesPage() {
                               )
                             }
                             placeholder="Descripción del concepto"
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                            className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
                           />
                         </td>
 
-                        <td className="p-3 min-w-32">
+                        <td className="p-3 min-w-[120px]">
                           <select
                             value={concepto.unidad}
                             onChange={(event) =>
                               actualizarConcepto(
                                 concepto.id,
                                 "unidad",
-                                event.target
-                                  .value as ConceptoCotizacion["unidad"]
+                                event.target.value as UnidadConcepto
                               )
                             }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                            className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
                           >
-                            <option>PZA</option>
-                            <option>ML</option>
-                            <option>M2</option>
-                            <option>SERV</option>
-                            <option>PAQ</option>
+                            {unidades.map((unidad) => (
+                              <option key={unidad} value={unidad}>
+                                {unidad}
+                              </option>
+                            ))}
                           </select>
                         </td>
 
-                        <td className="p-3 min-w-28">
+                        <td className="p-3 min-w-[130px]">
                           <input
                             type="number"
+                            min="0"
                             value={concepto.cantidad}
-                            min={0}
                             onChange={(event) =>
                               actualizarConcepto(
                                 concepto.id,
@@ -330,15 +450,15 @@ export function CotizacionesPage() {
                                 Number(event.target.value)
                               )
                             }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
+                            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
                           />
                         </td>
 
-                        <td className="p-3 min-w-36">
+                        <td className="p-3 min-w-[160px]">
                           <input
                             type="number"
+                            min="0"
                             value={concepto.precioUnitario}
-                            min={0}
                             onChange={(event) =>
                               actualizarConcepto(
                                 concepto.id,
@@ -346,22 +466,24 @@ export function CotizacionesPage() {
                                 Number(event.target.value)
                               )
                             }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
+                            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
                           />
                         </td>
 
-                        <td className="p-4 text-right font-black text-[#17445A] min-w-36">
-                          ${total.toLocaleString("es-MX")}
+                        <td className="p-3 text-right font-black text-[#17445A] min-w-[140px]">
+                          ${importe.toLocaleString("es-MX")}
                         </td>
 
-                        <td className="p-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => eliminarConcepto(concepto.id)}
-                            className="rounded-lg p-2 text-red-500 hover:bg-red-50 transition"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                        <td className="p-3">
+                          <div className="flex justify-center">
+                            <button
+                              onClick={() => eliminarConcepto(concepto.id)}
+                              disabled={conceptos.length === 1}
+                              className="rounded-xl p-2 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -369,93 +491,162 @@ export function CotizacionesPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </form>
+          </article>
+
+          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
+                <ImagePlus size={22} />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-[#17445A]">
+                  Evidencias
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Más adelante aquí se podrán subir de 1 a 3 fotos del proyecto.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[1, 2, 3].map((foto) => (
+                <div
+                  key={foto}
+                  className="min-h-32 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400"
+                >
+                  <ImagePlus size={28} />
+                  <p className="mt-2 text-sm font-bold">Foto {foto}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h3 className="text-lg font-black text-[#17445A]">
-                Resumen de cotización
-              </h3>
-              <p className="text-sm text-slate-500">
-                Vista previa del importe calculado.
-              </p>
-            </div>
-
-            <div className="p-6">
-              <div className="rounded-2xl bg-[#E8F1F5] p-5">
-                <p className="text-sm font-bold text-[#255F7A]">
-                  Total estimado
-                </p>
-                <p className="mt-2 text-4xl font-black text-[#17445A]">
-                  ${totalCotizacion.toLocaleString("es-MX")}
-                </p>
-              </div>
-
-              <div className="mt-5 space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Conceptos</span>
-                  <span className="font-bold text-[#17445A]">
-                    {conceptos.length}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Estado</span>
-                  <span className="rounded-full bg-[#FFF0E3] px-3 py-1 text-xs font-bold text-[#F5822A]">
-                    Pendiente
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Código</span>
-                  <span className="font-bold text-[#17445A]">
-                    ROB07MAR2026
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h3 className="text-lg font-black text-[#17445A]">
-                Evidencias
-              </h3>
-              <p className="text-sm text-slate-500">
-                Mockup para cargar de 1 a 3 fotografías.
-              </p>
-            </div>
-
-            <div className="p-6">
-              <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#255F7A]/40 bg-[#E8F1F5] p-6 text-center hover:bg-[#dbeaf0] transition">
-                <UploadCloud size={36} className="text-[#255F7A]" />
-                <span className="mt-3 font-bold text-[#17445A]">
-                  Subir evidencia
-                </span>
-                <span className="mt-1 text-sm text-slate-500">
-                  PNG, JPG o JPEG · máximo 3 fotos
-                </span>
-
-                <input type="file" accept="image/*" multiple className="hidden" />
-              </label>
-
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200" />
-                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200" />
-                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200" />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-[#17445A] p-6 text-white shadow-sm">
-            <h3 className="text-lg font-black">Siguiente paso</h3>
-            <p className="mt-2 text-sm text-white/80">
-              Cuando la cotización sea autorizada, podrá convertirse en proyecto
-              activo y pasar a seguimiento de cobranza.
+          <article className="rounded-2xl bg-[#17445A] p-6 text-white shadow-sm sticky top-6">
+            <p className="text-sm font-bold text-white/70">
+              Código generado
             </p>
-          </div>
+            <h3 className="mt-2 text-3xl font-black">{codigoCotizacion}</h3>
+
+            <div className="mt-6 space-y-3 border-t border-white/15 pt-5">
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-white/70">Subtotal</span>
+                <strong>${subtotal.toLocaleString("es-MX")}</strong>
+              </div>
+
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-white/70">IVA 16%</span>
+                <strong>${iva.toLocaleString("es-MX")}</strong>
+              </div>
+
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-white/70">Total antes de descuento</span>
+                <strong>
+                  ${totalAntesDescuento.toLocaleString("es-MX")}
+                </strong>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-white/80">
+                  Descuento
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={descuento}
+                  onChange={(event) => setDescuento(Number(event.target.value))}
+                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-right text-white outline-none focus:ring-2 focus:ring-[#F5822A]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-white/80">
+                  Anticipo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={anticipo}
+                  onChange={(event) => setAnticipo(Number(event.target.value))}
+                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-right text-white outline-none focus:ring-2 focus:ring-[#F5822A]"
+                />
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-4">
+                <div className="flex justify-between gap-4">
+                  <span className="text-white/75 font-bold">Total final</span>
+                  <strong className="text-xl">
+                    ${totalFinal.toLocaleString("es-MX")}
+                  </strong>
+                </div>
+
+                <div className="mt-3 flex justify-between gap-4">
+                  <span className="text-white/75 font-bold">Saldo</span>
+                  <strong className="text-xl text-[#FFB36B]">
+                    ${saldoPendiente.toLocaleString("es-MX")}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+            <h3 className="text-lg font-black text-[#17445A]">
+              Vista previa
+            </h3>
+
+            <div className="mt-4 space-y-3 text-sm">
+              <div>
+                <p className="text-slate-400 font-bold uppercase text-xs">
+                  Solicitante
+                </p>
+                <p className="font-black text-[#17445A]">
+                  {solicitante || "Sin capturar"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-400 font-bold uppercase text-xs">
+                  Empresa
+                </p>
+                <p className="text-slate-600">{empresa || "Sin capturar"}</p>
+              </div>
+
+              <div>
+                <p className="text-slate-400 font-bold uppercase text-xs">
+                  Servicio
+                </p>
+                <p className="text-slate-600">{tipoServicio}</p>
+              </div>
+
+              <div>
+                <p className="text-slate-400 font-bold uppercase text-xs">
+                  Tipo
+                </p>
+                <p className="text-slate-600">{tipoProyecto}</p>
+              </div>
+
+              <div>
+                <p className="text-slate-400 font-bold uppercase text-xs">
+                  Tiempo estimado
+                </p>
+                <p className="text-slate-600">
+                  {tiempoEstimado || "Sin capturar"}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-[#E8F1F5] p-4">
+                <p className="text-sm font-bold text-[#255F7A]">
+                  Descripción
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {descripcion || "Sin descripción capturada."}
+                </p>
+              </div>
+            </div>
+          </article>
         </aside>
       </section>
     </div>
