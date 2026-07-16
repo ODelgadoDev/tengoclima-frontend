@@ -1,11 +1,59 @@
-import { useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import { useAuth } from "../auth/useAuth";
+import { getApiErrorMessage } from "../utils/getApiErrorMessage";
+
+interface LoginLocationState {
+  from?: string;
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    navigate("/dashboard");
+
+    const normalizedUsername = username.trim();
+
+    if (!normalizedUsername || !password) {
+      setErrorMessage("Ingresa tu usuario y contraseña.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      await login({
+        username: normalizedUsername,
+        password,
+      });
+
+      const locationState =
+        location.state as LoginLocationState | null;
+
+      navigate(locationState?.from ?? "/dashboard", {
+        replace: true,
+      });
+    } catch (error) {
+      setErrorMessage(
+        getApiErrorMessage(
+          error,
+          "No fue posible iniciar sesión. Verifica tus credenciales.",
+        ),
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -29,27 +77,64 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div>
-            <label className="text-sm font-bold text-[#17445A]">Usuario</label>
+            <label
+              htmlFor="username"
+              className="text-sm font-bold text-[#17445A]"
+            >
+              Usuario
+            </label>
+
             <input
+              id="username"
+              name="username"
               type="text"
-              placeholder="admin@tengoclima.com"
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="Ingresa tu usuario"
+              autoComplete="username"
+              required
+              disabled={isLoading}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A] disabled:cursor-not-allowed disabled:bg-slate-100"
             />
           </div>
 
           <div>
-            <label className="text-sm font-bold text-[#17445A]">
+            <label
+              htmlFor="password"
+              className="text-sm font-bold text-[#17445A]"
+            >
               Contraseña
             </label>
+
             <input
+              id="password"
+              name="password"
               type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+              autoComplete="current-password"
+              required
+              disabled={isLoading}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A] disabled:cursor-not-allowed disabled:bg-slate-100"
             />
           </div>
 
-          <button className="w-full rounded-xl bg-[#F5822A] py-3 font-black text-white hover:bg-[#FF9A3D] transition shadow-md">
-            Iniciar sesión
+          {errorMessage && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-xl bg-[#F5822A] py-3 font-black text-white shadow-md transition hover:bg-[#FF9A3D] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
           </button>
         </form>
 

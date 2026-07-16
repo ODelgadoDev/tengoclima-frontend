@@ -7,14 +7,23 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Users,
 } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
+
+import { NavLink, useNavigate } from "react-router-dom";
+
+import { useAuth } from "../auth/useAuth";
 
 const menuItems = [
   {
     label: "Dashboard",
     path: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+  label: "Clientes",
+  path: "/clientes",
+  icon: Users,
   },
   {
     label: "Pendientes",
@@ -49,9 +58,20 @@ const menuItems = [
 ];
 
 export function Sidebar() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+
+    navigate("/", {
+      replace: true,
+    });
+  };
+
   return (
-    <aside className="w-80 min-h-screen bg-[#255F7A] text-white flex flex-col">
-      <div className="p-5 border-b border-white/15">
+    <aside className="flex min-h-screen w-80 flex-col bg-[#255F7A] text-white">
+      <div className="border-b border-white/15 p-5">
         <div className="flex items-center justify-center">
           <img
             src="/images/logo-tengoclima.png"
@@ -67,7 +87,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 space-y-2 p-4">
         {menuItems.map((item) => {
           const Icon = item.icon;
 
@@ -90,14 +110,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/15">
-        <Link
-          to="/"
-          className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition"
+      <div className="border-t border-white/15 p-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
         >
           <LogOut size={20} />
           Cerrar sesión
-        </Link>
+        </button>
       </div>
     </aside>
   );
