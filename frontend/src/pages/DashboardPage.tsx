@@ -57,7 +57,7 @@ export function DashboardPage() {
         </div>
 
         <Link
-          to="/cotizaciones"
+          to="/cotizaciones/nueva"
           className="rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
         >
           Nueva cotización

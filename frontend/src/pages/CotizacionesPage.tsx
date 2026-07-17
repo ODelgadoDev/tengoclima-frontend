@@ -1,654 +1,478 @@
 import {
-  Calculator,
-  FileText,
-  ImagePlus,
+  ArchiveRestore,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Pencil,
   Plus,
   RefreshCcw,
-  Save,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
+import { CotizacionesTrashModal } from "../components/cotizaciones/CotizacionesTrashModal";
+import { useCotizaciones } from "../hooks/useCotizaciones";
 import type {
-  TipoProyecto,
-  TipoServicio,
-  UnidadConcepto,
-} from "../types/project";
+  Cotizacion,
+  EstadoCotizacion,
+  TipoCotizacion,
+} from "../types/cotizacion";
+import {
+  ESTADOS_COTIZACION,
+  ESTADO_COBRANZA_LABELS,
+  ESTADO_COBRANZA_STYLES,
+  ESTADO_COTIZACION_STYLES,
+  formatDate,
+  formatEstadoCotizacion,
+  formatTipoCotizacion,
+  TIPOS_COTIZACION,
+} from "../utils/cotizacionUtils";
+import { formatCurrency } from "../utils/formatCurrency";
 
-type ConceptoCotizacion = {
-  id: number;
-  descripcion: string;
-  unidad: UnidadConcepto;
-  cantidad: number;
-  precioUnitario: number;
-};
-
-const unidades: UnidadConcepto[] = ["PZA", "ML", "M2", "SERV", "PAQ"];
-
-const tiposServicio: TipoServicio[] = [
-  "Climatización HVAC",
-  "Paneles solares",
-  "Mantenimiento",
-  "Obra / instalación",
-  "Sistema especial",
-  "Calentador",
-  "Mixto",
-];
-
-const tiposProyecto: TipoProyecto[] = [
-  "Residencial",
-  "Comercial",
-  "Industrial",
-  "Local",
-  "Exterior",
-];
-
-function generarCodigoCotizacion(nombre: string) {
-  const fecha = new Date();
-
-  const iniciales =
-    nombre
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((palabra) => palabra[0]?.toUpperCase())
-      .join("") || "TC";
-
-  const dia = String(fecha.getDate()).padStart(2, "0");
-
-  const meses = [
-    "ENE",
-    "FEB",
-    "MAR",
-    "ABR",
-    "MAY",
-    "JUN",
-    "JUL",
-    "AGO",
-    "SEP",
-    "OCT",
-    "NOV",
-    "DIC",
-  ];
-
-  const mes = meses[fecha.getMonth()];
-  const anio = fecha.getFullYear();
-
-  return `${iniciales}${dia}${mes}${anio}`;
+interface CotizacionesLocationState {
+  message?: string;
 }
 
-const conceptosIniciales: ConceptoCotizacion[] = [
-  {
-    id: 1,
-    descripcion: "Instalación de equipo minisplit",
-    unidad: "SERV",
-    cantidad: 1,
-    precioUnitario: 2500,
-  },
-  {
-    id: 2,
-    descripcion: "Tubería de cobre para instalación",
-    unidad: "ML",
-    cantidad: 5,
-    precioUnitario: 180,
-  },
-];
-
 export function CotizacionesPage() {
-  const [solicitante, setSolicitante] = useState("");
-  const [empresa, setEmpresa] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [tipoServicio, setTipoServicio] =
-    useState<TipoServicio>("Climatización HVAC");
-  const [tipoProyecto, setTipoProyecto] =
-    useState<TipoProyecto>("Residencial");
-  const [tiempoEstimado, setTiempoEstimado] = useState("");
-  const [descuento, setDescuento] = useState(0);
-  const [anticipo, setAnticipo] = useState(0);
-  const [conceptos, setConceptos] =
-    useState<ConceptoCotizacion[]>(conceptosIniciales);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const locationState = location.state as CotizacionesLocationState | null;
+  const {
+    cotizaciones,
+    count,
+    next,
+    previous,
+    currentPage,
+    pageSize,
+    totalPages,
+    search,
+    estado,
+    tipo,
+    isLoading,
+    errorMessage,
+    setSearch,
+    setEstado,
+    setTipo,
+    setPage,
+    setPageSize,
+    clearFilters,
+    reload,
+  } = useCotizaciones();
 
-  const codigoCotizacion = useMemo(
-    () => generarCodigoCotizacion(solicitante),
-    [solicitante]
+  const [searchInput, setSearchInput] = useState(search);
+  const [successMessage, setSuccessMessage] = useState(
+    locationState?.message ?? "",
   );
+  const [cotizacionToDelete, setCotizacionToDelete] =
+    useState<Cotizacion | null>(null);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
 
-  const subtotal = useMemo(() => {
-    return conceptos.reduce((total, concepto) => {
-      return total + concepto.cantidad * concepto.precioUnitario;
-    }, 0);
-  }, [conceptos]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (searchInput.trim() !== search) {
+        setSearch(searchInput);
+      }
+    }, 400);
 
-  const iva = subtotal * 0.16;
-  const totalAntesDescuento = subtotal + iva;
-  const totalFinal = Math.max(totalAntesDescuento - descuento, 0);
-  const saldoPendiente = Math.max(totalFinal - anticipo, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [search, searchInput, setSearch]);
 
-  const agregarConcepto = () => {
-    const nuevoConcepto: ConceptoCotizacion = {
-      id: Date.now(),
-      descripcion: "",
-      unidad: "PZA",
-      cantidad: 1,
-      precioUnitario: 0,
-    };
+  useEffect(() => {
+    if (locationState?.message) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, locationState?.message, navigate]);
 
-    setConceptos((actuales) => [...actuales, nuevoConcepto]);
+  const hasFilters = Boolean(search || estado || tipo);
+  const startResult =
+    count === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endResult = Math.min(currentPage * pageSize, count);
+
+  const clearAllFilters = () => {
+    setSearchInput("");
+    clearFilters();
   };
 
-  const eliminarConcepto = (id: number) => {
-    setConceptos((actuales) =>
-      actuales.filter((concepto) => concepto.id !== id)
+  const handleDeleted = (cotizacion: Cotizacion) => {
+    setCotizacionToDelete(null);
+    setSuccessMessage(
+      `La cotización ${cotizacion.codigo} fue enviada a la papelera.`,
     );
+
+    if (cotizaciones.length === 1 && currentPage > 1) {
+      setPage(currentPage - 1);
+    } else {
+      reload();
+    }
   };
 
-  const actualizarConcepto = (
-    id: number,
-    campo: keyof ConceptoCotizacion,
-    valor: string | number
+  const handleRestored = (
+    cotizacion: Cotizacion,
+    message: string,
   ) => {
-    setConceptos((actuales) =>
-      actuales.map((concepto) =>
-        concepto.id === id
-          ? {
-              ...concepto,
-              [campo]: valor,
-            }
-          : concepto
-      )
-    );
-  };
-
-  const limpiarFormulario = () => {
-    setSolicitante("");
-    setEmpresa("");
-    setTelefono("");
-    setDireccion("");
-    setDescripcion("");
-    setTipoServicio("Climatización HVAC");
-    setTipoProyecto("Residencial");
-    setTiempoEstimado("");
-    setDescuento(0);
-    setAnticipo(0);
-    setConceptos(conceptosIniciales);
-  };
-
-  const guardarCotizacion = () => {
-    alert(
-      `Cotización ${codigoCotizacion} generada correctamente.\n\nCuando conectemos Django, aquí se guardará en la base de datos.`
-    );
+    setSuccessMessage(`${message} Cotización: ${cotizacion.codigo}.`);
+    reload();
   };
 
   return (
     <div>
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="text-2xl font-black text-[#17445A]">
-            Nueva cotización
+            Cotizaciones
           </h2>
           <p className="text-slate-500">
-            Registro inicial de proyectos pendientes para TENGOCLIMA.
+            Consulta, creación y administración de cotizaciones.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button
-            onClick={limpiarFormulario}
-            className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] hover:bg-[#E8F1F5] transition"
+            type="button"
+            onClick={() => setIsTrashOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-100"
           >
-            <RefreshCcw size={18} />
-            Limpiar
+            <ArchiveRestore size={18} />
+            Papelera
           </button>
-
           <button
-            onClick={guardarCotizacion}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white hover:bg-[#FF9A3D] transition shadow-sm"
+            type="button"
+            onClick={reload}
+            disabled={isLoading}
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5] disabled:opacity-60"
           >
-            <Save size={18} />
-            Guardar cotización
+            <RefreshCcw
+              size={18}
+              className={isLoading ? "animate-spin" : ""}
+            />
+            Actualizar
           </button>
+          <Link
+            to="/cotizaciones/nueva"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+          >
+            <Plus size={18} />
+            Nueva cotización
+          </Link>
         </div>
       </div>
 
-      <section className="mt-6 grid grid-cols-1 2xl:grid-cols-[1fr_420px] gap-6">
-        <div className="space-y-6">
-          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-              <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
-                <FileText size={22} />
-              </div>
+      {successMessage && (
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
+          <span>{successMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage("")}
+            aria-label="Cerrar mensaje"
+            className="rounded-lg p-1 hover:bg-emerald-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
 
-              <div>
-                <h3 className="text-lg font-black text-[#17445A]">
-                  Datos del solicitante
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Información principal del cliente o empresa.
-                </p>
-              </div>
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-[#17445A]">
+                Cotizaciones registradas
+              </h3>
+              <p className="text-sm text-slate-500">
+                Información y totales obtenidos directamente de Django.
+              </p>
             </div>
-
-            <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Solicitante
-                </label>
-                <input
-                  value={solicitante}
-                  onChange={(event) => setSolicitante(event.target.value)}
-                  placeholder="Ej. Roberto Martínez"
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Empresa
-                </label>
-                <input
-                  value={empresa}
-                  onChange={(event) => setEmpresa(event.target.value)}
-                  placeholder="Ej. Residencial Campestre"
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Teléfono
-                </label>
-                <input
-                  value={telefono}
-                  onChange={(event) => setTelefono(event.target.value)}
-                  placeholder="Ej. 614 000 0000"
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Dirección
-                </label>
-                <input
-                  value={direccion}
-                  onChange={(event) => setDireccion(event.target.value)}
-                  placeholder="Ej. Chihuahua, Chih."
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
+            <div className="rounded-xl bg-[#E8F1F5] px-4 py-2 text-sm font-bold text-[#255F7A]">
+              Total: {count}
             </div>
-          </article>
+          </div>
 
-          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-              <div className="rounded-xl bg-[#FFF0E3] p-3 text-[#F5822A]">
-                <Calculator size={22} />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-black text-[#17445A]">
-                  Información del proyecto
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Clasificación, descripción y estimación inicial.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Tipo de servicio
-                </label>
-                <select
-                  value={tipoServicio}
-                  onChange={(event) =>
-                    setTipoServicio(event.target.value as TipoServicio)
-                  }
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                >
-                  {tiposServicio.map((servicio) => (
-                    <option key={servicio} value={servicio}>
-                      {servicio}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Tipo de proyecto
-                </label>
-                <select
-                  value={tipoProyecto}
-                  onChange={(event) =>
-                    setTipoProyecto(event.target.value as TipoProyecto)
-                  }
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                >
-                  {tiposProyecto.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Tiempo estimado
-                </label>
-                <input
-                  value={tiempoEstimado}
-                  onChange={(event) => setTiempoEstimado(event.target.value)}
-                  placeholder="Ej. 3 días"
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4">
+          <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_210px_180px_auto]">
+            <div>
               <label className="text-sm font-bold text-[#17445A]">
-                Descripción del proyecto
+                Buscar
               </label>
-              <textarea
-                value={descripcion}
-                onChange={(event) => setDescripcion(event.target.value)}
-                placeholder="Describe el trabajo solicitado, condiciones del lugar, necesidades del cliente o detalles importantes."
-                rows={4}
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-              />
-            </div>
-          </article>
-
-          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-4">
-              <div>
-                <h3 className="text-lg font-black text-[#17445A]">
-                  Conceptos de cotización
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Materiales, servicios, mano de obra o paquetes incluidos.
-                </p>
+              <div className="relative mt-2">
+                <Search
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Código, descripción, cliente o empresa..."
+                  className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                />
               </div>
+            </div>
 
-              <button
-                onClick={agregarConcepto}
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-2 text-sm font-bold text-white hover:bg-[#17445A] transition"
+            <div>
+              <label className="text-sm font-bold text-[#17445A]">
+                Estado
+              </label>
+              <select
+                value={estado}
+                onChange={(event) =>
+                  setEstado(
+                    event.target.value as EstadoCotizacion | "",
+                  )
+                }
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
               >
-                <Plus size={17} />
-                Agregar concepto
+                <option value="">Todos</option>
+                {ESTADOS_COTIZACION.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-[#17445A]">
+                Tipo
+              </label>
+              <select
+                value={tipo}
+                onChange={(event) =>
+                  setTipo(event.target.value as TipoCotizacion | "")
+                }
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
+              >
+                <option value="">Todos</option>
+                {TIPOS_COTIZACION.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                disabled={!hasFilters && !searchInput}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 xl:w-auto"
+              >
+                <X size={18} />
+                Limpiar
               </button>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-5 overflow-x-auto">
+        {isLoading && cotizaciones.length === 0 && (
+          <div className="flex min-h-64 items-center justify-center">
+            <div className="text-center">
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#F5822A]" />
+              <p className="mt-4 font-semibold text-[#17445A]">
+                Cargando cotizaciones...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="m-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+            {errorMessage}
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && cotizaciones.length === 0 && (
+          <div className="p-12 text-center">
+            <h3 className="text-lg font-black text-[#17445A]">
+              No se encontraron cotizaciones
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Cambia los filtros o registra una nueva cotización.
+            </p>
+          </div>
+        )}
+
+        {cotizaciones.length > 0 && (
+          <>
+            <div className="relative overflow-x-auto">
+              {isLoading && (
+                <div className="absolute inset-x-0 top-0 z-10 h-1 bg-[#F5822A]" />
+              )}
               <table className="w-full text-sm">
                 <thead className="bg-[#E8F1F5] text-[#17445A]">
                   <tr>
-                    <th className="text-left p-3">Descripción</th>
-                    <th className="text-left p-3">Unidad</th>
-                    <th className="text-right p-3">Cantidad</th>
-                    <th className="text-right p-3">Precio unitario</th>
-                    <th className="text-right p-3">Importe</th>
-                    <th className="text-center p-3">Acción</th>
+                    <th className="p-4 text-left">Código / Cliente</th>
+                    <th className="p-4 text-left">Tipo</th>
+                    <th className="p-4 text-left">Estado</th>
+                    <th className="p-4 text-left">Cobranza</th>
+                    <th className="p-4 text-right">Total</th>
+                    <th className="p-4 text-right">Saldo</th>
+                    <th className="p-4 text-left">Registro</th>
+                    <th className="p-4 text-center">Acciones</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {conceptos.map((concepto) => {
-                    const importe =
-                      concepto.cantidad * concepto.precioUnitario;
-
-                    return (
-                      <tr key={concepto.id} className="border-t border-slate-100">
-                        <td className="p-3 min-w-[260px]">
-                          <input
-                            value={concepto.descripcion}
-                            onChange={(event) =>
-                              actualizarConcepto(
-                                concepto.id,
-                                "descripcion",
-                                event.target.value
-                              )
-                            }
-                            placeholder="Descripción del concepto"
-                            className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                          />
-                        </td>
-
-                        <td className="p-3 min-w-[120px]">
-                          <select
-                            value={concepto.unidad}
-                            onChange={(event) =>
-                              actualizarConcepto(
-                                concepto.id,
-                                "unidad",
-                                event.target.value as UnidadConcepto
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#F5822A]"
+                  {cotizaciones.map((cotizacion) => (
+                    <tr
+                      key={cotizacion.id}
+                      className="border-t border-slate-100 transition hover:bg-slate-50"
+                    >
+                      <td className="p-4">
+                        <Link
+                          to={`/cotizaciones/${cotizacion.id}`}
+                          className="font-black text-[#17445A] hover:text-[#F5822A]"
+                        >
+                          {cotizacion.codigo}
+                        </Link>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {cotizacion.cliente_nombre}
+                          {cotizacion.cliente_empresa
+                            ? ` · ${cotizacion.cliente_empresa}`
+                            : ""}
+                        </p>
+                      </td>
+                      <td className="p-4 text-slate-600">
+                        {formatTipoCotizacion(cotizacion.tipo)}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            ESTADO_COTIZACION_STYLES[cotizacion.estado]
+                          }`}
+                        >
+                          {formatEstadoCotizacion(cotizacion.estado)}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            ESTADO_COBRANZA_STYLES[
+                              cotizacion.estado_cobranza
+                            ]
+                          }`}
+                        >
+                          {
+                            ESTADO_COBRANZA_LABELS[
+                              cotizacion.estado_cobranza
+                            ]
+                          }
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-black text-[#17445A]">
+                        {formatCurrency(Number(cotizacion.total))}
+                      </td>
+                      <td className="p-4 text-right font-black text-red-600">
+                        {formatCurrency(Number(cotizacion.saldo_pendiente))}
+                      </td>
+                      <td className="p-4 text-slate-600">
+                        {formatDate(cotizacion.fecha_creacion)}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center gap-2">
+                          <Link
+                            to={`/cotizaciones/${cotizacion.id}`}
+                            aria-label="Ver detalle"
+                            className="rounded-xl p-2 text-[#255F7A] transition hover:bg-[#E8F1F5]"
                           >
-                            {unidades.map((unidad) => (
-                              <option key={unidad} value={unidad}>
-                                {unidad}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-
-                        <td className="p-3 min-w-[130px]">
-                          <input
-                            type="number"
-                            min="0"
-                            value={concepto.cantidad}
-                            onChange={(event) =>
-                              actualizarConcepto(
-                                concepto.id,
-                                "cantidad",
-                                Number(event.target.value)
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
-                          />
-                        </td>
-
-                        <td className="p-3 min-w-[160px]">
-                          <input
-                            type="number"
-                            min="0"
-                            value={concepto.precioUnitario}
-                            onChange={(event) =>
-                              actualizarConcepto(
-                                concepto.id,
-                                "precioUnitario",
-                                Number(event.target.value)
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-right outline-none focus:ring-2 focus:ring-[#F5822A]"
-                          />
-                        </td>
-
-                        <td className="p-3 text-right font-black text-[#17445A] min-w-[140px]">
-                          ${importe.toLocaleString("es-MX")}
-                        </td>
-
-                        <td className="p-3">
-                          <div className="flex justify-center">
-                            <button
-                              onClick={() => eliminarConcepto(concepto.id)}
-                              disabled={conceptos.length === 1}
-                              className="rounded-xl p-2 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <Eye size={18} />
+                          </Link>
+                          <Link
+                            to={`/cotizaciones/${cotizacion.id}/editar`}
+                            aria-label="Editar cotización"
+                            className="rounded-xl p-2 text-amber-600 transition hover:bg-amber-50"
+                          >
+                            <Pencil size={18} />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setCotizacionToDelete(cotizacion)}
+                            aria-label="Eliminar cotización"
+                            className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </article>
 
-          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
-                <ImagePlus size={22} />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-black text-[#17445A]">
-                  Evidencias
-                </h3>
+            <div className="flex flex-col gap-4 border-t border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <p className="text-sm text-slate-500">
-                  Más adelante aquí se podrán subir de 1 a 3 fotos del proyecto.
+                  Mostrando{" "}
+                  <strong className="text-[#17445A]">
+                    {startResult}-{endResult}
+                  </strong>{" "}
+                  de <strong className="text-[#17445A]">{count}</strong>
                 </p>
+                <label className="flex items-center gap-2 text-sm text-slate-500">
+                  Por página
+                  <select
+                    value={pageSize}
+                    onChange={(event) =>
+                      setPageSize(Number(event.target.value))
+                    }
+                    className="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-[#17445A]"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </label>
               </div>
-            </div>
 
-            <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[1, 2, 3].map((foto) => (
-                <div
-                  key={foto}
-                  className="min-h-32 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400"
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPage(currentPage - 1)}
+                  disabled={!previous || isLoading}
+                  className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5] disabled:opacity-40"
                 >
-                  <ImagePlus size={28} />
-                  <p className="mt-2 text-sm font-bold">Foto {foto}</p>
-                </div>
-              ))}
-            </div>
-          </article>
-        </div>
-
-        <aside className="space-y-6">
-          <article className="rounded-2xl bg-[#17445A] p-6 text-white shadow-sm sticky top-6">
-            <p className="text-sm font-bold text-white/70">
-              Código generado
-            </p>
-            <h3 className="mt-2 text-3xl font-black">{codigoCotizacion}</h3>
-
-            <div className="mt-6 space-y-3 border-t border-white/15 pt-5">
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-white/70">Subtotal</span>
-                <strong>${subtotal.toLocaleString("es-MX")}</strong>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-white/70">IVA 16%</span>
-                <strong>${iva.toLocaleString("es-MX")}</strong>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-white/70">Total antes de descuento</span>
-                <strong>
-                  ${totalAntesDescuento.toLocaleString("es-MX")}
-                </strong>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-white/80">
-                  Descuento
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={descuento}
-                  onChange={(event) => setDescuento(Number(event.target.value))}
-                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-right text-white outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-white/80">
-                  Anticipo
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={anticipo}
-                  onChange={(event) => setAnticipo(Number(event.target.value))}
-                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-right text-white outline-none focus:ring-2 focus:ring-[#F5822A]"
-                />
-              </div>
-
-              <div className="rounded-2xl bg-white/10 p-4">
-                <div className="flex justify-between gap-4">
-                  <span className="text-white/75 font-bold">Total final</span>
-                  <strong className="text-xl">
-                    ${totalFinal.toLocaleString("es-MX")}
-                  </strong>
-                </div>
-
-                <div className="mt-3 flex justify-between gap-4">
-                  <span className="text-white/75 font-bold">Saldo</span>
-                  <strong className="text-xl text-[#FFB36B]">
-                    ${saldoPendiente.toLocaleString("es-MX")}
-                  </strong>
-                </div>
+                  <ChevronLeft size={18} />
+                  Anterior
+                </button>
+                <span className="text-sm font-bold text-[#17445A]">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(currentPage + 1)}
+                  disabled={!next || isLoading}
+                  className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5] disabled:opacity-40"
+                >
+                  Siguiente
+                  <ChevronRight size={18} />
+                </button>
               </div>
             </div>
-          </article>
-
-          <article className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <h3 className="text-lg font-black text-[#17445A]">
-              Vista previa
-            </h3>
-
-            <div className="mt-4 space-y-3 text-sm">
-              <div>
-                <p className="text-slate-400 font-bold uppercase text-xs">
-                  Solicitante
-                </p>
-                <p className="font-black text-[#17445A]">
-                  {solicitante || "Sin capturar"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-slate-400 font-bold uppercase text-xs">
-                  Empresa
-                </p>
-                <p className="text-slate-600">{empresa || "Sin capturar"}</p>
-              </div>
-
-              <div>
-                <p className="text-slate-400 font-bold uppercase text-xs">
-                  Servicio
-                </p>
-                <p className="text-slate-600">{tipoServicio}</p>
-              </div>
-
-              <div>
-                <p className="text-slate-400 font-bold uppercase text-xs">
-                  Tipo
-                </p>
-                <p className="text-slate-600">{tipoProyecto}</p>
-              </div>
-
-              <div>
-                <p className="text-slate-400 font-bold uppercase text-xs">
-                  Tiempo estimado
-                </p>
-                <p className="text-slate-600">
-                  {tiempoEstimado || "Sin capturar"}
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-[#E8F1F5] p-4">
-                <p className="text-sm font-bold text-[#255F7A]">
-                  Descripción
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {descripcion || "Sin descripción capturada."}
-                </p>
-              </div>
-            </div>
-          </article>
-        </aside>
+          </>
+        )}
       </section>
+
+      {cotizacionToDelete && (
+        <CotizacionDeleteModal
+          cotizacion={cotizacionToDelete}
+          onClose={() => setCotizacionToDelete(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
+
+      {isTrashOpen && (
+        <CotizacionesTrashModal
+          onClose={() => setIsTrashOpen(false)}
+          onRestored={handleRestored}
+        />
+      )}
     </div>
   );
 }
