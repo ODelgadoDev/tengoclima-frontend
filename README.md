@@ -1,160 +1,77 @@
-# TENGOCLIMA - Sistema Administrativo
+# Frontend TENGOCLIMA
 
-Sistema administrativo multiplataforma desarrollado para la empresa TENGOCLIMA, enfocado en la gestión de proyectos, cotizaciones, clientes potenciales, cobranza y control administrativo interno.
+Aplicación web administrativa construida con React, TypeScript, Vite y Tailwind CSS.
 
-## 📋 Descripción
+## Requisitos
 
-Este proyecto tiene como objetivo centralizar y modernizar el flujo de trabajo de TENGOCLIMA mediante una plataforma web y móvil que permita administrar de manera eficiente:
+- Node.js instalado.
+- pnpm instalado.
+- Backend TENGOCLIMA ejecutándose.
+- Archivo `.env` configurado.
 
-* Clientes potenciales
-* Cotizaciones
-* Proyectos activos
-* Seguimiento de pagos
-* Control administrativo
-* Evidencias fotográficas
-* Historial de proyectos
-* Organización de información empresarial
+## Configuración
 
-El sistema está diseñado para facilitar el trabajo operativo y administrativo de la empresa, reduciendo tiempos y mejorando el control interno de los procesos.
+Copia el ejemplo de variables:
 
----
-
-# 🚀 Tecnologías utilizadas
-
-## Frontend
-
-* React
-* TypeScript
-* Tailwind CSS
-* Vite
-
-## Backend (planeado)
-
-* Django
-* Django REST Framework
-* PostgreSQL
-
-## Aplicación móvil (planeado)
-
-* Ionic
-
-## Almacenamiento
-
-* Buckets / almacenamiento en la nube para:
-
-  * Imágenes
-  * PDFs
-  * Archivos Excel
-  * Evidencias de proyectos
-
----
-
-# 🏗️ Funcionalidades principales
-
-* Inicio de sesión por roles
-* Dashboard administrativo
-* Gestión de clientes potenciales
-* Creación de cotizaciones
-* Conversión de cotizaciones a proyectos
-* Seguimiento de proyectos activos
-* Control de pagos y cobranza
-* Registro de evidencias fotográficas
-* Gestión de estados de proyectos:
-
-  * Pendientes
-  * En trámite
-  * Por cobrar
-  * Pagados
-* Generación de identificadores únicos para proyectos
-* Interfaz responsiva para escritorio y móvil
-
----
-
-# 👥 Roles del sistema
-
-## Dueño
-
-Acceso completo al sistema.
-
-## Administrador
-
-Gestión operativa y administrativa.
-
-## Ayudante
-
-Acceso limitado según permisos asignados.
-
----
-
-# 📍 Empresa
-
-TENGOCLIMA
-Climatización y Energía Renovable
-
-Especialistas en:
-
-* HVAC
-* Energía solar
-* Cuartos fríos
-* Mantenimiento
-* Eficiencia energética
-
-Ubicación:
-Chihuahua, Chihuahua, México.
-
----
-
-# 📦 Instalación del proyecto
-
-Clonar repositorio:
-
-```bash
-git clone https://github.com/ODelgadoDev/tengoclima-frontend.git
+```powershell
+Copy-Item .env.example .env
 ```
 
-Entrar a la carpeta:
+Contenido esperado:
 
-```bash
-cd tengoclima-frontend
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
-Instalar dependencias:
+## Comandos
 
-```bash
+```powershell
 pnpm install
-```
-
-Ejecutar entorno de desarrollo:
-
-```bash
 pnpm dev
+pnpm lint
+pnpm build
+pnpm preview
 ```
 
----
+## Rutas principales
 
-# 📌 Estado del proyecto
+```text
+/                       Inicio de sesión
+/dashboard              Resumen administrativo
+/clientes                Clientes potenciales
+/pendientes              Cotizaciones pendientes
+/cotizaciones            Cotizaciones
+/cotizaciones/nueva      Nueva cotización
+/cotizaciones/:id        Detalle de cotización
+/cotizaciones/:id/editar Edición de cotización
+/proyectos                Proyectos
+/proyectos/:id            Detalle y evidencias
+/cobros                   Cuentas por cobrar
+/pagados                  Cotizaciones liquidadas
+/libro                    Gastos y utilidad
+```
 
-🚧 En desarrollo
+## Autenticación
 
-Actualmente se trabaja en:
+El cliente Axios:
 
-* Diseño del dashboard
-* Arquitectura del sistema
-* Diseño de base de datos
-* Sistema de autenticación
-* Gestión de proyectos y cotizaciones
+- Adjunta `Authorization: Bearer`.
+- Renueva el access token con el refresh token.
+- Cierra la sesión cuando ya no puede renovarse.
+- Permite `FormData` para evidencias y comprobantes.
 
----
+## Roles
 
-# 👨‍💻 desarrollo
+- `DUENO`: administración completa.
+- `ADMINISTRADOR`: administración completa.
+- `AYUDANTE`: solo consulta.
 
-* Orlando Delgado
+El backend conserva la autoridad final sobre los permisos. El frontend oculta acciones no permitidas y protege las rutas administrativas.
 
+## Validación previa a commit
 
-Proyecto desarrollado como parte de la estadía TSU de Desarrollo de Software Multiplataforma en la Universidad Tecnológica de Chihuahua.
-
----
-
-# 📄 Licencia
-
-Proyecto privado desarrollado para uso interno de TENGOCLIMA.
+```powershell
+pnpm lint
+pnpm build
+git status
+```
