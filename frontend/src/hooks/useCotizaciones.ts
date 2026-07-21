@@ -13,16 +13,30 @@ const DEFAULT_PAGE_SIZE = 10;
 const COTIZACIONES_ERROR_MESSAGE =
   "No fue posible cargar las cotizaciones.";
 
-export function useCotizaciones() {
+function createInitialParams(
+  initialParams: CotizacionesQueryParams,
+): CotizacionesQueryParams {
+  return {
+    page: initialParams.page ?? 1,
+    page_size: initialParams.page_size ?? DEFAULT_PAGE_SIZE,
+    ordering: initialParams.ordering ?? "-fecha_creacion",
+    search: initialParams.search,
+    estado: initialParams.estado,
+    tipo: initialParams.tipo,
+    cliente: initialParams.cliente,
+  };
+}
+
+export function useCotizaciones(
+  initialParams: CotizacionesQueryParams = {},
+) {
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [count, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
   const [previous, setPrevious] = useState<string | null>(null);
-  const [params, setParams] = useState<CotizacionesQueryParams>({
-    page: 1,
-    page_size: DEFAULT_PAGE_SIZE,
-    ordering: "-fecha_creacion",
-  });
+  const [params, setParams] = useState<CotizacionesQueryParams>(() =>
+    createInitialParams(initialParams),
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");

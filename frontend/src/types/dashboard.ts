@@ -1,3 +1,6 @@
+import type { Cotizacion } from "./cotizacion";
+import type { Proyecto } from "./proyecto";
+
 export interface DashboardResumen {
   clientes: number;
   cotizaciones: number;
@@ -19,4 +22,6 @@ export interface DashboardFinanzas {
 export interface DashboardData {
   resumen: DashboardResumen;
   finanzas: DashboardFinanzas;
+  proyectosRecientes: Proyecto[];
+  cotizacionesRecientes: Cotizacion[];
 }
