@@ -19,7 +19,6 @@ const defaultConfig = {
   timeout: 15_000,
   headers: {
     Accept: "application/json",
-    "Content-Type": "application/json",
   },
 };
 
@@ -41,6 +40,10 @@ apiClient.interceptors.request.use(
 
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (config.data instanceof FormData) {
+      config.headers.delete("Content-Type");
     }
 
     return config;

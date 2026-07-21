@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { proyectosApi } from "../api/proyectosApi";
+import { EvidenciasGallery } from "../components/evidencias/EvidenciasGallery";
 import { ProyectoDeleteModal } from "../components/proyectos/ProyectoDeleteModal";
 import { ProyectoFormModal } from "../components/proyectos/ProyectoFormModal";
 import { ProyectoStatusBadge } from "../components/proyectos/ProyectoStatusBadge";
@@ -280,6 +281,11 @@ export function ProjectDetailPage() {
               </p>
             </div>
           </DetailCard>
+
+          <EvidenciasGallery
+            cotizacionId={proyecto.cotizacion}
+            cotizacionCodigo={proyecto.cotizacion_codigo}
+          />
         </div>
 
         <aside className="space-y-6">
