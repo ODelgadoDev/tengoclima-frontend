@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { contabilidadApi } from "../api/contabilidadApi";
+import { usePermissions } from "../auth/usePermissions";
 import { CategoriasGastoModal } from "../components/contabilidad/CategoriasGastoModal";
 import { GastoDeleteModal } from "../components/contabilidad/GastoDeleteModal";
 import { GastoFormModal } from "../components/contabilidad/GastoFormModal";
@@ -50,6 +51,7 @@ const metodos: MetodoPagoGasto[] = [
 ];
 
 export function LibroPage() {
+  const { canManage } = usePermissions();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
@@ -156,27 +158,31 @@ export function LibroPage() {
             <Download size={18} />
             {isExporting ? "Exportando..." : "Exportar CSV"}
           </button>
-          <button
-            type="button"
-            onClick={() => setIsCategoriesOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
-          >
-            <FolderCog size={18} /> Categorías
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsTrashOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
-          >
-            <Trash2 size={18} /> Papelera
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsFormOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm hover:bg-[#FF9A3D]"
-          >
-            <Plus size={18} /> Registrar gasto
-          </button>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsCategoriesOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <FolderCog size={18} /> Categorías
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsTrashOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <Trash2 size={18} /> Papelera
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm hover:bg-[#FF9A3D]"
+              >
+                <Plus size={18} /> Registrar gasto
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -371,7 +377,9 @@ export function LibroPage() {
                   <th className="p-4 text-left">Método</th>
                   <th className="p-4 text-center">Comprobante</th>
                   <th className="p-4 text-right">Monto</th>
-                  <th className="p-4 text-center">Acciones</th>
+                  {canManage && (
+                    <th className="p-4 text-center">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -410,38 +418,43 @@ export function LibroPage() {
                     <td className="p-4 text-right font-black text-red-600">
                       {formatCurrency(toMoneyNumber(gasto.monto))}
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditingGasto(gasto)}
-                          className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A]"
-                          aria-label="Editar gasto"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingGasto(gasto)}
-                          className="rounded-xl bg-red-100 p-2 text-red-600 hover:bg-red-200"
-                          aria-label="Eliminar gasto"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td className="p-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingGasto(gasto)}
+                            className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A]"
+                            aria-label="Editar gasto"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingGasto(gasto)}
+                            className="rounded-xl bg-red-100 p-2 text-red-600 hover:bg-red-200"
+                            aria-label="Eliminar gasto"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
               <tfoot className="border-t border-slate-200 bg-slate-50">
                 <tr>
-                  <td colSpan={5} className="p-4 text-right font-black text-[#17445A]">
+                  <td
+                    colSpan={canManage ? 5 : 4}
+                    className="p-4 text-right font-black text-[#17445A]"
+                  >
                     Total de esta página
                   </td>
                   <td className="p-4 text-right font-black text-red-600">
                     {formatCurrency(visibleTotal)}
                   </td>
-                  <td />
+                  {canManage && <td />}
                 </tr>
               </tfoot>
             </table>
@@ -475,7 +488,7 @@ export function LibroPage() {
         </section>
       )}
 
-      {isFormOpen && (
+      {canManage && isFormOpen && (
         <GastoFormModal
           categorias={categoriasResult.categorias}
           onClose={() => setIsFormOpen(false)}
@@ -486,7 +499,7 @@ export function LibroPage() {
         />
       )}
 
-      {editingGasto && (
+      {canManage && editingGasto && (
         <GastoFormModal
           categorias={categoriasResult.categorias}
           gasto={editingGasto}
@@ -498,7 +511,7 @@ export function LibroPage() {
         />
       )}
 
-      {deletingGasto && (
+      {canManage && deletingGasto && (
         <GastoDeleteModal
           gasto={deletingGasto}
           onClose={() => setDeletingGasto(null)}
@@ -509,14 +522,14 @@ export function LibroPage() {
         />
       )}
 
-      {isTrashOpen && (
+      {canManage && isTrashOpen && (
         <GastosTrashModal
           onClose={() => setIsTrashOpen(false)}
           onRestored={reloadAll}
         />
       )}
 
-      {isCategoriesOpen && (
+      {canManage && isCategoriesOpen && (
         <CategoriasGastoModal
           onClose={() => setIsCategoriesOpen(false)}
           onChanged={categoriasResult.reload}

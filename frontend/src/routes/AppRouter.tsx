@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import { ProtectedRoute } from "../auth/ProtectedRoute";
+import { RequireManagementRole } from "../auth/RequireManagementRole";
 import { PublicRoute } from "../auth/PublicRoute";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { ClientesPage } from "../pages/ClientesPage";
@@ -14,6 +15,7 @@ import { CotizacionDetailPage } from "../pages/CotizacionDetailPage";
 import { CotizacionesPage } from "../pages/CotizacionesPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { EditarCotizacionPage } from "../pages/EditarCotizacionPage";
+import { ForbiddenPage } from "../pages/ForbiddenPage";
 import { LibroPage } from "../pages/LibroPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NuevaCotizacionPage } from "../pages/NuevaCotizacionPage";
@@ -36,17 +38,20 @@ export function AppRouter() {
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/pendientes" element={<PendientesPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
-            <Route
-              path="/cotizaciones/nueva"
-              element={<NuevaCotizacionPage />}
-            />
+            <Route path="/sin-permiso" element={<ForbiddenPage />} />
+            <Route element={<RequireManagementRole />}>
+              <Route
+                path="/cotizaciones/nueva"
+                element={<NuevaCotizacionPage />}
+              />
+              <Route
+                path="/cotizaciones/:id/editar"
+                element={<EditarCotizacionPage />}
+              />
+            </Route>
             <Route
               path="/cotizaciones/:id"
               element={<CotizacionDetailPage />}
-            />
-            <Route
-              path="/cotizaciones/:id/editar"
-              element={<EditarCotizacionPage />}
             />
             <Route path="/proyectos" element={<ProyectosPage />} />
             <Route

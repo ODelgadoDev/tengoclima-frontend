@@ -15,6 +15,7 @@ import {
 } from "react-router-dom";
 
 import { cotizacionesApi } from "../api/cotizacionesApi";
+import { usePermissions } from "../auth/usePermissions";
 import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
 import type { CotizacionDetalle } from "../types/cotizacion";
 import {
@@ -34,6 +35,7 @@ interface DetailLocationState {
 }
 
 export function CotizacionDetailPage() {
+  const { canManage } = usePermissions();
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -144,23 +146,25 @@ export function CotizacionDetailPage() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            to={`/cotizaciones/${cotizacion.id}/editar`}
-            className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
-          >
-            <Pencil size={18} />
-            Editar
-          </Link>
-          <button
-            type="button"
-            onClick={() => setIsDeleteOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
-          >
-            <Trash2 size={18} />
-            Eliminar
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              to={`/cotizaciones/${cotizacion.id}/editar`}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
+            >
+              <Pencil size={18} />
+              Editar
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsDeleteOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
+            >
+              <Trash2 size={18} />
+              Eliminar
+            </button>
+          </div>
+        )}
       </div>
 
       {successMessage && (
@@ -324,7 +328,7 @@ export function CotizacionDetailPage() {
         </div>
       </section>
 
-      {isDeleteOpen && (
+      {canManage && isDeleteOpen && (
         <CotizacionDeleteModal
           cotizacion={cotizacion}
           onClose={() => setIsDeleteOpen(false)}

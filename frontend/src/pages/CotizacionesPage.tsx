@@ -17,6 +17,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import { usePermissions } from "../auth/usePermissions";
 import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
 import { CotizacionesTrashModal } from "../components/cotizaciones/CotizacionesTrashModal";
 import { useCotizaciones } from "../hooks/useCotizaciones";
@@ -42,6 +43,7 @@ interface CotizacionesLocationState {
 }
 
 export function CotizacionesPage() {
+  const { canManage } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
   const locationState = location.state as CotizacionesLocationState | null;
@@ -135,14 +137,16 @@ export function CotizacionesPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => setIsTrashOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-100"
-          >
-            <ArchiveRestore size={18} />
-            Papelera
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setIsTrashOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-100"
+            >
+              <ArchiveRestore size={18} />
+              Papelera
+            </button>
+          )}
           <button
             type="button"
             onClick={reload}
@@ -155,13 +159,15 @@ export function CotizacionesPage() {
             />
             Actualizar
           </button>
-          <Link
-            to="/cotizaciones/nueva"
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            <Plus size={18} />
-            Nueva cotización
-          </Link>
+          {canManage && (
+            <Link
+              to="/cotizaciones/nueva"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+            >
+              <Plus size={18} />
+              Nueva cotización
+            </Link>
+          )}
         </div>
       </div>
 
@@ -383,21 +389,25 @@ export function CotizacionesPage() {
                           >
                             <Eye size={18} />
                           </Link>
-                          <Link
-                            to={`/cotizaciones/${cotizacion.id}/editar`}
-                            aria-label="Editar cotización"
-                            className="rounded-xl p-2 text-amber-600 transition hover:bg-amber-50"
-                          >
-                            <Pencil size={18} />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setCotizacionToDelete(cotizacion)}
-                            aria-label="Eliminar cotización"
-                            className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          {canManage && (
+                            <>
+                              <Link
+                                to={`/cotizaciones/${cotizacion.id}/editar`}
+                                aria-label="Editar cotización"
+                                className="rounded-xl p-2 text-amber-600 transition hover:bg-amber-50"
+                              >
+                                <Pencil size={18} />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setCotizacionToDelete(cotizacion)}
+                                aria-label="Eliminar cotización"
+                                className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -459,7 +469,7 @@ export function CotizacionesPage() {
         )}
       </section>
 
-      {cotizacionToDelete && (
+      {canManage && cotizacionToDelete && (
         <CotizacionDeleteModal
           cotizacion={cotizacionToDelete}
           onClose={() => setCotizacionToDelete(null)}
@@ -467,7 +477,7 @@ export function CotizacionesPage() {
         />
       )}
 
-      {isTrashOpen && (
+      {canManage && isTrashOpen && (
         <CotizacionesTrashModal
           onClose={() => setIsTrashOpen(false)}
           onRestored={handleRestored}

@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { usuariosApi } from "../api/usuariosApi";
+import { usePermissions } from "../auth/usePermissions";
 import { ProyectoDeleteModal } from "../components/proyectos/ProyectoDeleteModal";
 import { ProyectoFormModal } from "../components/proyectos/ProyectoFormModal";
 import { ProyectoStatusBadge } from "../components/proyectos/ProyectoStatusBadge";
@@ -33,6 +34,7 @@ import {
 } from "../utils/proyectoUtils";
 
 export function ProyectosPage() {
+  const { canManage } = usePermissions();
   const {
     proyectos,
     count,
@@ -126,14 +128,16 @@ export function ProyectosPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => setShowTrash(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 transition hover:bg-slate-50"
-          >
-            <ArchiveRestore size={18} />
-            Papelera
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setShowTrash(true)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              <ArchiveRestore size={18} />
+              Papelera
+            </button>
+          )}
           <button
             type="button"
             onClick={reload}
@@ -143,14 +147,16 @@ export function ProyectosPage() {
             <RefreshCcw size={18} />
             Actualizar
           </button>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            <Plus size={19} />
-            Convertir cotización
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+            >
+              <Plus size={19} />
+              Convertir cotización
+            </button>
+          )}
         </div>
       </div>
 
@@ -315,22 +321,26 @@ export function ProyectosPage() {
                   <Eye size={16} />
                   Ver detalle
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => setProyectoToEdit(proyecto)}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#17445A]"
-                >
-                  <Pencil size={16} />
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProyectoToDelete(proyecto)}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
-                >
-                  <Trash2 size={16} />
-                  Eliminar
-                </button>
+                {canManage && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setProyectoToEdit(proyecto)}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#17445A]"
+                    >
+                      <Pencil size={16} />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProyectoToDelete(proyecto)}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      <Trash2 size={16} />
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           ))}
@@ -380,14 +390,14 @@ export function ProyectosPage() {
         </section>
       )}
 
-      {showForm && (
+      {canManage && showForm && (
         <ProyectoFormModal
           onClose={() => setShowForm(false)}
           onSaved={handleSaved}
         />
       )}
 
-      {proyectoToEdit && (
+      {canManage && proyectoToEdit && (
         <ProyectoFormModal
           proyecto={proyectoToEdit}
           onClose={() => setProyectoToEdit(null)}
@@ -395,7 +405,7 @@ export function ProyectosPage() {
         />
       )}
 
-      {proyectoToDelete && (
+      {canManage && proyectoToDelete && (
         <ProyectoDeleteModal
           proyecto={proyectoToDelete}
           onClose={() => setProyectoToDelete(null)}
@@ -403,7 +413,7 @@ export function ProyectosPage() {
         />
       )}
 
-      {showTrash && (
+      {canManage && showTrash && (
         <ProyectosTrashModal
           onClose={() => setShowTrash(false)}
           onRestored={handleRestored}

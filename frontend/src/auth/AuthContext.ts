@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { LoginCredentials } from "../types/auth";
+import type { AuthProfile, LoginCredentials } from "../types/auth";
 
 export type AuthStatus =
   | "checking"
@@ -9,7 +9,7 @@ export type AuthStatus =
 export interface AuthContextValue {
   status: AuthStatus;
   isAuthenticated: boolean;
-  profile: unknown;
+  profile: AuthProfile | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
 }

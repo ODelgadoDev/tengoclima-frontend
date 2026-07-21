@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { usePermissions } from "../auth/usePermissions";
 import { ProyectoStatusBadge } from "../components/proyectos/ProyectoStatusBadge";
 import { StatCard } from "../components/StatCard";
 import { useDashboard } from "../hooks/useDashboard";
@@ -22,6 +23,7 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { formatProjectDateTime } from "../utils/proyectoUtils";
 
 export function DashboardPage() {
+  const { canManage } = usePermissions();
   const {
     data,
     isLoading,
@@ -81,12 +83,14 @@ export function DashboardPage() {
             Actualizar
           </button>
 
-          <Link
-            to="/cotizaciones/nueva"
-            className="rounded-xl bg-[#F5822A] px-5 py-3 text-center font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            Nueva cotización
-          </Link>
+          {canManage && (
+            <Link
+              to="/cotizaciones/nueva"
+              className="rounded-xl bg-[#F5822A] px-5 py-3 text-center font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+            >
+              Nueva cotización
+            </Link>
+          )}
         </div>
       </div>
 

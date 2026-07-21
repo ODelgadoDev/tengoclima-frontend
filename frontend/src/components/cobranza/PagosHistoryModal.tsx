@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CreditCard, Edit3, ReceiptText, Trash2, X } from "lucide-react";
 import { cobranzaApi } from "../../api/cobranzaApi";
+import { usePermissions } from "../../auth/usePermissions";
 import type {
   CuentaCobranzaResumen,
   CuentaPorCobrar,
@@ -33,6 +34,7 @@ export function PagosHistoryModal({
   onClose,
   onChanged,
 }: Props) {
+  const { canManage } = usePermissions();
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -151,7 +153,9 @@ export function PagosHistoryModal({
                       <th className="p-4 text-left">Método</th>
                       <th className="p-4 text-left">Referencia</th>
                       <th className="p-4 text-right">Monto</th>
-                      <th className="p-4 text-center">Acciones</th>
+                      {canManage && (
+                        <th className="p-4 text-center">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -169,26 +173,28 @@ export function PagosHistoryModal({
                         <td className="p-4 text-right font-black text-green-700">
                           {formatCurrency(toMoneyNumber(pago.monto))}
                         </td>
-                        <td className="p-4">
-                          <div className="flex justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEditingPago(pago)}
-                              className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A]"
-                              aria-label="Editar pago"
-                            >
-                              <Edit3 size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingPago(pago)}
-                              className="rounded-xl bg-red-50 p-2 text-red-600 hover:bg-red-100"
-                              aria-label="Eliminar pago"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
+                        {canManage && (
+                          <td className="p-4">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingPago(pago)}
+                                className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A]"
+                                aria-label="Editar pago"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingPago(pago)}
+                                className="rounded-xl bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                                aria-label="Eliminar pago"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -209,7 +215,7 @@ export function PagosHistoryModal({
         </div>
       </div>
 
-      {editingPago && (
+      {canManage && editingPago && (
         <PagoFormModal
           cuentas={cuentasPorCobrar}
           pago={editingPago}
@@ -224,7 +230,7 @@ export function PagosHistoryModal({
         />
       )}
 
-      {deletingPago && (
+      {canManage && deletingPago && (
         <PagoDeleteModal
           pago={deletingPago}
           onClose={() => setDeletingPago(null)}

@@ -8,6 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { usePermissions } from "../auth/usePermissions";
 import { CobranzaStatusBadge } from "../components/cobranza/CobranzaStatusBadge";
 import { PagoFormModal } from "../components/cobranza/PagoFormModal";
 import { PagosHistoryModal } from "../components/cobranza/PagosHistoryModal";
@@ -20,6 +21,7 @@ import type {
 import { formatCurrency } from "../utils/formatCurrency";
 
 export function CobrosPage() {
+  const { canManage } = usePermissions();
   const { cuentas, isLoading, errorMessage, reload } = useCuentasPorCobrar();
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState<EstadoCobranza | "">("");
@@ -70,20 +72,24 @@ export function CobrosPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => setIsTrashOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
-          >
-            <Trash2 size={18} /> Papelera
-          </button>
-          <button
-            type="button"
-            onClick={() => openCreate()}
-            className="flex items-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            <CreditCard size={18} /> Registrar pago
-          </button>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsTrashOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <Trash2 size={18} /> Papelera
+              </button>
+              <button
+                type="button"
+                onClick={() => openCreate()}
+                className="flex items-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+              >
+                <CreditCard size={18} /> Registrar pago
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -239,14 +245,16 @@ export function CobrosPage() {
                         >
                           <History size={16} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openCreate(cuenta.id)}
-                          className="rounded-xl bg-[#F5822A] p-2 text-white hover:bg-[#FF9A3D]"
-                          aria-label="Registrar pago"
-                        >
-                          <CreditCard size={16} />
-                        </button>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => openCreate(cuenta.id)}
+                            className="rounded-xl bg-[#F5822A] p-2 text-white hover:bg-[#FF9A3D]"
+                            aria-label="Registrar pago"
+                          >
+                            <CreditCard size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -257,7 +265,7 @@ export function CobrosPage() {
         </section>
       )}
 
-      {isFormOpen && (
+      {canManage && isFormOpen && (
         <PagoFormModal
           cuentas={cuentas}
           initialCotizacionId={initialCotizacionId}
@@ -278,7 +286,7 @@ export function CobrosPage() {
         />
       )}
 
-      {isTrashOpen && (
+      {canManage && isTrashOpen && (
         <PagosTrashModal
           onClose={() => setIsTrashOpen(false)}
           onRestored={reload}

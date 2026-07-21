@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { usePermissions } from "../auth/usePermissions";
 import { ClienteDeleteModal } from "../components/clientes/ClienteDeleteModal";
 import { ClientesTrashModal } from "../components/clientes/ClientesTrashModal";
 import {
@@ -57,6 +58,7 @@ function formatEstado(estado: EstadoCliente): string {
 }
 
 export function ClientesPage() {
+  const { canManage } = usePermissions();
   const {
     clientes,
     count,
@@ -200,14 +202,16 @@ export function ClientesPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={openTrashModal}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-100"
-          >
-            <ArchiveRestore size={18} />
-            Papelera
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openTrashModal}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-100"
+            >
+              <ArchiveRestore size={18} />
+              Papelera
+            </button>
+          )}
 
           <button
             type="button"
@@ -222,14 +226,16 @@ export function ClientesPage() {
             Actualizar
           </button>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            <Plus size={18} />
-            Nuevo cliente
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+            >
+              <Plus size={18} />
+              Nuevo cliente
+            </button>
+          )}
         </div>
       </div>
 
@@ -426,7 +432,9 @@ export function ClientesPage() {
                     <th className="p-4 text-left">Contacto</th>
                     <th className="p-4 text-left">Estado</th>
                     <th className="p-4 text-left">Registro</th>
-                    <th className="p-4 text-center">Acciones</th>
+                    {canManage && (
+                      <th className="p-4 text-center">Acciones</th>
+                    )}
                   </tr>
                 </thead>
 
@@ -490,27 +498,29 @@ export function ClientesPage() {
                         {formatDate(cliente.fecha_creacion)}
                       </td>
 
-                      <td className="p-4">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(cliente)}
-                            className="flex items-center gap-2 rounded-xl border border-[#255F7A] px-3 py-2 text-xs font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
-                          >
-                            <Pencil size={16} />
-                            Editar
-                          </button>
+                      {canManage && (
+                        <td className="p-4">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(cliente)}
+                              className="flex items-center gap-2 rounded-xl border border-[#255F7A] px-3 py-2 text-xs font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
+                            >
+                              <Pencil size={16} />
+                              Editar
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(cliente)}
-                            className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                          >
-                            <Trash2 size={16} />
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(cliente)}
+                              className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                            >
+                              <Trash2 size={16} />
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -577,7 +587,7 @@ export function ClientesPage() {
         )}
       </section>
 
-      {isFormModalOpen && (
+      {canManage && isFormModalOpen && (
         <ClienteFormModal
           key={selectedCliente?.id ?? "new"}
           cliente={selectedCliente}
@@ -586,7 +596,7 @@ export function ClientesPage() {
         />
       )}
 
-      {clienteToDelete && (
+      {canManage && clienteToDelete && (
         <ClienteDeleteModal
           cliente={clienteToDelete}
           onClose={closeDeleteModal}
@@ -594,7 +604,7 @@ export function ClientesPage() {
         />
       )}
 
-      {isTrashModalOpen && (
+      {canManage && isTrashModalOpen && (
         <ClientesTrashModal
           onClose={() => setIsTrashModalOpen(false)}
           onRestored={handleClienteRestored}

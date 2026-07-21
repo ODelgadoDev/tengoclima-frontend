@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { proyectosApi } from "../api/proyectosApi";
+import { usePermissions } from "../auth/usePermissions";
 import { EvidenciasGallery } from "../components/evidencias/EvidenciasGallery";
 import { ProyectoDeleteModal } from "../components/proyectos/ProyectoDeleteModal";
 import { ProyectoFormModal } from "../components/proyectos/ProyectoFormModal";
@@ -26,6 +27,7 @@ import {
 } from "../utils/proyectoUtils";
 
 export function ProjectDetailPage() {
+  const { canManage } = usePermissions();
   const { id } = useParams();
   const navigate = useNavigate();
   const projectId = Number(id);
@@ -157,22 +159,26 @@ export function ProjectDetailPage() {
             <RefreshCcw size={18} />
             Actualizar
           </button>
-          <button
-            type="button"
-            onClick={() => setShowEdit(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-3 font-bold text-white transition hover:bg-[#17445A]"
-          >
-            <Pencil size={18} />
-            Editar
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDelete(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 font-bold text-red-600 transition hover:bg-red-50"
-          >
-            <Trash2 size={18} />
-            Eliminar
-          </button>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowEdit(true)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#255F7A] px-4 py-3 font-bold text-white transition hover:bg-[#17445A]"
+              >
+                <Pencil size={18} />
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDelete(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 font-bold text-red-600 transition hover:bg-red-50"
+              >
+                <Trash2 size={18} />
+                Eliminar
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -336,7 +342,7 @@ export function ProjectDetailPage() {
         </aside>
       </section>
 
-      {showEdit && (
+      {canManage && showEdit && (
         <ProyectoFormModal
           proyecto={proyecto}
           onClose={() => setShowEdit(false)}
@@ -344,7 +350,7 @@ export function ProjectDetailPage() {
         />
       )}
 
-      {showDelete && (
+      {canManage && showDelete && (
         <ProyectoDeleteModal
           proyecto={proyecto}
           onClose={() => setShowDelete(false)}

@@ -8,7 +8,7 @@ import {
 
 import { authApi } from "../api/authApi";
 import { tokenStorage } from "../services/tokenStorage";
-import type { LoginCredentials } from "../types/auth";
+import type { AuthProfile, LoginCredentials } from "../types/auth";
 import {
   AuthContext,
   type AuthContextValue,
@@ -21,7 +21,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>("checking");
-  const [profile, setProfile] = useState<unknown>(null);
+  const [profile, setProfile] = useState<AuthProfile | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -44,7 +44,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
          * Si el access token venció, el interceptor de Axios
          * intentará renovarlo usando el refresh token.
          */
-        const currentProfile = await authApi.getProfile();
+        const currentProfile = await authApi.getProfile<AuthProfile>();
+
+        if (!currentProfile.activo) {
+          throw new Error("El perfil de usuario está inactivo.");
+        }
 
         if (isMounted) {
           setProfile(currentProfile);
@@ -75,7 +79,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       tokenStorage.setTokens(tokens);
 
-      const currentProfile = await authApi.getProfile();
+      const currentProfile = await authApi.getProfile<AuthProfile>();
+
+      if (!currentProfile.activo) {
+        throw new Error("El perfil de usuario está inactivo.");
+      }
 
       setProfile(currentProfile);
       setStatus("authenticated");

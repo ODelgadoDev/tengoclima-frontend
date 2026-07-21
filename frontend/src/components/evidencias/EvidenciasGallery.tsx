@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { usePermissions } from "../../auth/usePermissions";
 import { useEvidencias } from "../../hooks/useEvidencias";
 import type { Evidencia } from "../../types/evidencia";
 import {
@@ -29,6 +30,7 @@ export function EvidenciasGallery({
   cotizacionId,
   cotizacionCodigo,
 }: EvidenciasGalleryProps) {
+  const { canManage } = usePermissions();
   const { evidencias, isLoading, errorMessage, refresh } =
     useEvidencias(cotizacionId);
   const [showCreate, setShowCreate] = useState(false);
@@ -81,22 +83,26 @@ export function EvidenciasGallery({
             <RefreshCcw size={17} />
             Actualizar
           </button>
-          <button
-            type="button"
-            onClick={() => setShowTrash(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#255F7A] px-4 py-2.5 text-sm font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
-          >
-            <Archive size={17} />
-            Papelera
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#F5822A] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d96f1d]"
-          >
-            <ImagePlus size={17} />
-            Agregar evidencia
-          </button>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowTrash(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#255F7A] px-4 py-2.5 text-sm font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
+              >
+                <Archive size={17} />
+                Papelera
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#F5822A] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d96f1d]"
+              >
+                <ImagePlus size={17} />
+                Agregar evidencia
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -162,24 +168,26 @@ export function EvidenciasGallery({
                     Por {evidencia.creado_por_username || "usuario"}
                   </p>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setEditingEvidence(evidencia)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E8F1F5] px-3 py-2 text-sm font-bold text-[#255F7A] transition hover:bg-[#dcebf1]"
-                    >
-                      <Pencil size={16} />
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeletingEvidence(evidencia)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-100"
-                    >
-                      <Trash2 size={16} />
-                      Eliminar
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setEditingEvidence(evidencia)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E8F1F5] px-3 py-2 text-sm font-bold text-[#255F7A] transition hover:bg-[#dcebf1]"
+                      >
+                        <Pencil size={16} />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingEvidence(evidencia)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                      >
+                        <Trash2 size={16} />
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}
@@ -187,7 +195,7 @@ export function EvidenciasGallery({
         )}
       </div>
 
-      {showCreate && (
+      {canManage && showCreate && (
         <EvidenciaFormModal
           cotizacionId={cotizacionId}
           cotizacionCodigo={cotizacionCodigo}
@@ -196,7 +204,7 @@ export function EvidenciasGallery({
         />
       )}
 
-      {editingEvidence && (
+      {canManage && editingEvidence && (
         <EvidenciaFormModal
           cotizacionId={cotizacionId}
           cotizacionCodigo={cotizacionCodigo}
@@ -206,7 +214,7 @@ export function EvidenciasGallery({
         />
       )}
 
-      {deletingEvidence && (
+      {canManage && deletingEvidence && (
         <EvidenciaDeleteModal
           evidencia={deletingEvidence}
           onClose={() => setDeletingEvidence(null)}
@@ -221,7 +229,7 @@ export function EvidenciasGallery({
         />
       )}
 
-      {showTrash && (
+      {canManage && showTrash && (
         <EvidenciasTrashModal
           cotizacionId={cotizacionId}
           cotizacionCodigo={cotizacionCodigo}

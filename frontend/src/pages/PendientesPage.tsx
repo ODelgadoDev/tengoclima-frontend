@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { usePermissions } from "../auth/usePermissions";
 import { useCotizaciones } from "../hooks/useCotizaciones";
 import {
   ESTADO_COTIZACION_STYLES,
@@ -21,6 +22,7 @@ import {
 import { formatCurrency } from "../utils/formatCurrency";
 
 export function PendientesPage() {
+  const { canManage } = usePermissions();
   const {
     cotizaciones,
     count,
@@ -87,13 +89,15 @@ export function PendientesPage() {
             Actualizar
           </button>
 
-          <Link
-            to="/cotizaciones/nueva"
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
-          >
-            <FileText size={18} />
-            Nueva cotización
-          </Link>
+          {canManage && (
+            <Link
+              to="/cotizaciones/nueva"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
+            >
+              <FileText size={18} />
+              Nueva cotización
+            </Link>
+          )}
         </div>
       </div>
 
@@ -272,13 +276,15 @@ export function PendientesPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Link
-                        to={`/cotizaciones/${cotizacion.id}/editar`}
-                        className="flex items-center gap-2 rounded-xl border border-[#255F7A] px-4 py-2 text-sm font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
-                      >
-                        <Pencil size={17} />
-                        Editar
-                      </Link>
+                      {canManage && (
+                        <Link
+                          to={`/cotizaciones/${cotizacion.id}/editar`}
+                          className="flex items-center gap-2 rounded-xl border border-[#255F7A] px-4 py-2 text-sm font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
+                        >
+                          <Pencil size={17} />
+                          Editar
+                        </Link>
+                      )}
 
                       <Link
                         to={`/cotizaciones/${cotizacion.id}`}

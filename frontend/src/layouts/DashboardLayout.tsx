@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
+import { ReadOnlyNotice } from "../components/ReadOnlyNotice";
 import { Sidebar } from "../components/Sidebar";
 
 export function DashboardLayout() {
@@ -11,6 +12,7 @@ export function DashboardLayout() {
         <Navbar />
 
         <section className="p-6">
+          <ReadOnlyNotice />
           <Outlet />
         </section>
       </main>

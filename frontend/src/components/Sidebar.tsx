@@ -7,11 +7,13 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
 import { NavLink, useNavigate } from "react-router-dom";
 
+import { usePermissions } from "../auth/usePermissions";
 import { useAuth } from "../auth/useAuth";
 
 const menuItems = [
@@ -59,7 +61,8 @@ const menuItems = [
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, profile } = useAuth();
+  const { displayName, isReadOnly, roleLabel } = usePermissions();
 
   const handleLogout = () => {
     logout();
@@ -111,6 +114,22 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-white/15 p-4">
+        <div className="mb-3 rounded-xl bg-white/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-black text-white">
+            <ShieldCheck size={17} />
+            <span className="truncate">{displayName}</span>
+          </div>
+          <p className="mt-1 text-xs font-semibold text-white/70">
+            {roleLabel}
+            {isReadOnly ? " · Solo consulta" : " · Gestión habilitada"}
+          </p>
+          {profile?.email && (
+            <p className="mt-1 truncate text-xs text-white/55">
+              {profile.email}
+            </p>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={handleLogout}
