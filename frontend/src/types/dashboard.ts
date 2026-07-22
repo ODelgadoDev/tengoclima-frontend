@@ -9,7 +9,7 @@ export interface DashboardResumen {
   monto_por_cobrar: number;
   cotizaciones_pendientes: number;
   cotizaciones_autorizadas: number;
-  cotizaciones_rechazadas: number;
+  cotizaciones_canceladas: number;
 }
 
 export interface DashboardFinanzas {

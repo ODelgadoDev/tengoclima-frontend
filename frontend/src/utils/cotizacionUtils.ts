@@ -15,8 +15,8 @@ export const ESTADOS_COTIZACION: Array<{
 }> = [
   { value: "PENDIENTE", label: "Pendiente" },
   { value: "AUTORIZADA", label: "Autorizada" },
-  { value: "RECHAZADA", label: "Rechazada" },
-  { value: "CONVERTIDA", label: "Convertida a proyecto" },
+  { value: "CANCELADA", label: "Cancelada" },
+  { value: "CONVERTIDA", label: "Vinculada a proyecto" },
 ];
 
 export const TIPOS_COTIZACION: Array<{
@@ -36,6 +36,7 @@ export const UNIDADES_CONCEPTO: Array<{
   { value: "M2", label: "Metro cuadrado" },
   { value: "SERV", label: "Servicio" },
   { value: "PAQ", label: "Paquete" },
+  { value: "LOTE", label: "Lote" },
 ];
 
 export const ESTADO_COBRANZA_LABELS: Record<EstadoCobranza, string> = {
@@ -47,7 +48,7 @@ export const ESTADO_COBRANZA_LABELS: Record<EstadoCobranza, string> = {
 export const ESTADO_COTIZACION_STYLES: Record<EstadoCotizacion, string> = {
   PENDIENTE: "bg-amber-100 text-amber-700",
   AUTORIZADA: "bg-emerald-100 text-emerald-700",
-  RECHAZADA: "bg-red-100 text-red-700",
+  CANCELADA: "bg-red-100 text-red-700",
   CONVERTIDA: "bg-blue-100 text-blue-700",
 };
 
@@ -88,7 +89,9 @@ export function formatDate(dateValue: string): string {
 }
 
 export function parseMoney(value: string | number): number {
-  const parsedValue = Number(value);
+  const normalized =
+    typeof value === "string" ? value.replace(",", ".") : value;
+  const parsedValue = Number(normalized);
   return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
 
@@ -103,10 +106,12 @@ export function createClientId(): string {
 export function createEmptyConcepto(): ConceptoFormValue {
   return {
     clientId: createClientId(),
+    catalogoId: null,
     descripcion: "",
     unidad: "PZA",
-    cantidad: 1,
-    precioUnitario: 0,
+    cantidad: "",
+    precioUnitario: "",
+    guardarEnCatalogo: false,
   };
 }
 
@@ -130,7 +135,6 @@ export function createEmptyCotizacionForm(): CotizacionFormValues {
     descripcion: "",
     tipo: "LOCAL",
     estimadoTiempo: "",
-    estado: "PENDIENTE",
     conceptos: [createEmptyConcepto()],
   };
 }
@@ -141,10 +145,12 @@ function mapConceptoToForm(
   return {
     clientId: `api-${concepto.id}`,
     id: concepto.id,
+    catalogoId: concepto.catalogo,
     descripcion: concepto.descripcion,
     unidad: concepto.unidad,
-    cantidad: parseMoney(concepto.cantidad),
-    precioUnitario: parseMoney(concepto.precio_unitario),
+    cantidad: concepto.cantidad,
+    precioUnitario: concepto.precio_unitario,
+    guardarEnCatalogo: false,
   };
 }
 
@@ -157,7 +163,6 @@ export function mapCotizacionToForm(
     descripcion: cotizacion.descripcion,
     tipo: cotizacion.tipo,
     estimadoTiempo: cotizacion.estimado_tiempo ?? "",
-    estado: cotizacion.estado,
     conceptos:
       cotizacion.conceptos.length > 0
         ? cotizacion.conceptos.map(mapConceptoToForm)

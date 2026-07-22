@@ -1,9 +1,3 @@
-export type EstadoCliente =
-  | "PENDIENTE"
-  | "EN_TRAMITE"
-  | "AUTORIZADO"
-  | "RECHAZADO";
-
 export interface Cliente {
   id: number;
   nombre_solicitante: string;
@@ -11,7 +5,6 @@ export interface Cliente {
   telefono: string;
   direccion: string;
   descripcion: string;
-  estado: EstadoCliente;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -31,7 +24,6 @@ export interface ClienteCreatePayload {
   telefono: string;
   direccion: string;
   descripcion: string;
-  estado: EstadoCliente;
 }
 
 export type ClienteUpdatePayload = Partial<ClienteCreatePayload>;
@@ -52,6 +44,5 @@ export interface ClientesQueryParams {
   page?: number;
   page_size?: number;
   search?: string;
-  estado?: EstadoCliente;
   ordering?: string;
 }

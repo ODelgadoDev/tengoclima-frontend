@@ -1,19 +1,38 @@
 export type EstadoCotizacion =
   | "PENDIENTE"
   | "AUTORIZADA"
-  | "RECHAZADA"
+  | "CANCELADA"
   | "CONVERTIDA";
 
 export type TipoCotizacion = "LOCAL" | "EXTERIOR";
 
-export type UnidadConcepto = "PZA" | "ML" | "M2" | "SERV" | "PAQ";
+export type UnidadConcepto =
+  | "PZA"
+  | "ML"
+  | "M2"
+  | "SERV"
+  | "PAQ"
+  | "LOTE";
 
 export type EstadoCobranza = "PENDIENTE" | "PARCIAL" | "PAGADO";
+
+export interface ConceptoCatalogo {
+  id: number;
+  descripcion: string;
+  unidad: UnidadConcepto;
+  precio_unitario: string;
+  usos: number;
+  activo: boolean;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
 
 export interface ConceptoCotizacion {
   id: number;
   cotizacion?: number;
   cotizacion_codigo?: string;
+  catalogo: number | null;
+  catalogo_descripcion: string | null;
   descripcion: string;
   unidad: UnidadConcepto;
   cantidad: string;
@@ -57,22 +76,39 @@ export interface CotizacionCreatePayload {
   descripcion: string;
   tipo: TipoCotizacion;
   estimado_tiempo: string | null;
-  estado: EstadoCotizacion;
 }
 
 export type CotizacionUpdatePayload = Partial<CotizacionCreatePayload>;
 
 export interface ConceptoCreatePayload {
   cotizacion: number;
-  descripcion: string;
-  unidad: UnidadConcepto;
+  catalogo?: number | null;
+  descripcion?: string;
+  unidad?: UnidadConcepto;
   cantidad: string;
-  precio_unitario: string;
+  precio_unitario?: string;
 }
 
 export type ConceptoUpdatePayload = Partial<
   Omit<ConceptoCreatePayload, "cotizacion">
 >;
+
+export interface CatalogoConceptoCreatePayload {
+  descripcion: string;
+  unidad: UnidadConcepto;
+  precio_unitario: string;
+}
+
+export type CatalogoConceptoUpdatePayload =
+  Partial<CatalogoConceptoCreatePayload>;
+
+export interface CatalogoConceptosQueryParams {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  unidad?: UnidadConcepto;
+  ordering?: string;
+}
 
 export interface CotizacionesQueryParams {
   page?: number;
@@ -84,25 +120,37 @@ export interface CotizacionesQueryParams {
   ordering?: string;
 }
 
-export interface CotizacionesPaginatedResponse {
+export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
   previous: string | null;
-  results: Cotizacion[];
+  results: T[];
 }
+
+export type CotizacionesPaginatedResponse = PaginatedResponse<Cotizacion>;
+export type CatalogoConceptosPaginatedResponse =
+  PaginatedResponse<ConceptoCatalogo>;
 
 export interface RestoreCotizacionResponse {
   success: boolean;
   message: string;
 }
 
+export interface CotizacionEstadoActionResponse {
+  success: boolean;
+  message: string;
+  cotizacion: Cotizacion;
+}
+
 export interface ConceptoFormValue {
   clientId: string;
   id?: number;
+  catalogoId: number | null;
   descripcion: string;
   unidad: UnidadConcepto;
-  cantidad: number;
-  precioUnitario: number;
+  cantidad: string;
+  precioUnitario: string;
+  guardarEnCatalogo: boolean;
 }
 
 export interface CotizacionFormValues {
@@ -111,6 +159,5 @@ export interface CotizacionFormValues {
   descripcion: string;
   tipo: TipoCotizacion;
   estimadoTiempo: string;
-  estado: EstadoCotizacion;
   conceptos: ConceptoFormValue[];
 }

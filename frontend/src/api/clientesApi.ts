@@ -17,7 +17,6 @@ function normalizeParams(
     page: params.page,
     page_size: params.page_size,
     search: params.search?.trim() || undefined,
-    estado: params.estado || undefined,
     ordering: params.ordering?.trim() || undefined,
   };
 }

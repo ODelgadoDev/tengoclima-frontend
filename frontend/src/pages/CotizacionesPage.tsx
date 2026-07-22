@@ -1,5 +1,6 @@
 import {
   ArchiveRestore,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -11,14 +12,12 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { usePermissions } from "../auth/usePermissions";
+import { CatalogoConceptosModal } from "../components/cotizaciones/CatalogoConceptosModal";
 import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
+import { CotizacionEstadoActions } from "../components/cotizaciones/CotizacionEstadoActions";
 import { CotizacionesTrashModal } from "../components/cotizaciones/CotizacionesTrashModal";
 import { useCotizaciones } from "../hooks/useCotizaciones";
 import type {
@@ -73,9 +72,11 @@ export function CotizacionesPage() {
   const [successMessage, setSuccessMessage] = useState(
     locationState?.message ?? "",
   );
+  const [actionError, setActionError] = useState("");
   const [cotizacionToDelete, setCotizacionToDelete] =
     useState<Cotizacion | null>(null);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [isCatalogoOpen, setIsCatalogoOpen] = useState(false);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -124,6 +125,12 @@ export function CotizacionesPage() {
     reload();
   };
 
+  const handleEstadoChanged = (message: string) => {
+    setActionError("");
+    setSuccessMessage(message);
+    reload();
+  };
+
   return (
     <div>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -136,7 +143,18 @@ export function CotizacionesPage() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setIsCatalogoOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
+            >
+              <BookOpen size={18} />
+              Catálogo
+            </button>
+          )}
+
           {canManage && (
             <button
               type="button"
@@ -147,6 +165,7 @@ export function CotizacionesPage() {
               Papelera
             </button>
           )}
+
           <button
             type="button"
             onClick={reload}
@@ -159,6 +178,7 @@ export function CotizacionesPage() {
             />
             Actualizar
           </button>
+
           {canManage && (
             <Link
               to="/cotizaciones/nueva"
@@ -185,6 +205,20 @@ export function CotizacionesPage() {
         </div>
       )}
 
+      {actionError && (
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError("")}
+            aria-label="Cerrar error"
+            className="rounded-lg p-1 hover:bg-red-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-5">
           <div className="flex items-center justify-between gap-4">
@@ -193,7 +227,7 @@ export function CotizacionesPage() {
                 Cotizaciones registradas
               </h3>
               <p className="text-sm text-slate-500">
-                Información y totales obtenidos directamente de Django.
+                Los estados comerciales se cambian mediante acciones seguras.
               </p>
             </div>
             <div className="rounded-xl bg-[#E8F1F5] px-4 py-2 text-sm font-bold text-[#255F7A]">
@@ -215,7 +249,7 @@ export function CotizacionesPage() {
                   type="search"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Código, descripción, cliente o empresa..."
+                  placeholder="Código, descripción, cliente, empresa o concepto..."
                   className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#F5822A]"
                 />
               </div>
@@ -381,7 +415,7 @@ export function CotizacionesPage() {
                         {formatDate(cotizacion.fecha_creacion)}
                       </td>
                       <td className="p-4">
-                        <div className="flex justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1">
                           <Link
                             to={`/cotizaciones/${cotizacion.id}`}
                             aria-label="Ver detalle"
@@ -389,8 +423,15 @@ export function CotizacionesPage() {
                           >
                             <Eye size={18} />
                           </Link>
+
                           {canManage && (
                             <>
+                              <CotizacionEstadoActions
+                                cotizacion={cotizacion}
+                                compact
+                                onChanged={handleEstadoChanged}
+                                onError={setActionError}
+                              />
                               <Link
                                 to={`/cotizaciones/${cotizacion.id}/editar`}
                                 aria-label="Editar cotización"
@@ -400,7 +441,9 @@ export function CotizacionesPage() {
                               </Link>
                               <button
                                 type="button"
-                                onClick={() => setCotizacionToDelete(cotizacion)}
+                                onClick={() =>
+                                  setCotizacionToDelete(cotizacion)
+                                }
                                 aria-label="Eliminar cotización"
                                 className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
                               >
@@ -481,6 +524,12 @@ export function CotizacionesPage() {
         <CotizacionesTrashModal
           onClose={() => setIsTrashOpen(false)}
           onRestored={handleRestored}
+        />
+      )}
+
+      {canManage && isCatalogoOpen && (
+        <CatalogoConceptosModal
+          onClose={() => setIsCatalogoOpen(false)}
         />
       )}
     </div>

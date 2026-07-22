@@ -6,11 +6,7 @@ import {
 } from "react";
 
 import { clientesApi } from "../api/clientesApi";
-import type {
-  Cliente,
-  ClientesQueryParams,
-  EstadoCliente,
-} from "../types/client";
+import type { Cliente, ClientesQueryParams } from "../types/client";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
 
 const CLIENTES_ERROR_MESSAGE =
@@ -27,6 +23,7 @@ export function useClientes() {
   const [params, setParams] = useState<ClientesQueryParams>({
     page: 1,
     page_size: DEFAULT_PAGE_SIZE,
+    ordering: "-fecha_creacion",
   });
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -88,19 +85,6 @@ export function useClientes() {
     [beginRequest],
   );
 
-  const setEstado = useCallback(
-    (estado: EstadoCliente | "") => {
-      beginRequest();
-
-      setParams((currentParams) => ({
-        ...currentParams,
-        page: 1,
-        estado: estado || undefined,
-      }));
-    },
-    [beginRequest],
-  );
-
   const setPage = useCallback(
     (page: number) => {
       if (page < 1) {
@@ -133,11 +117,12 @@ export function useClientes() {
   const clearFilters = useCallback(() => {
     beginRequest();
 
-    setParams({
+    setParams((currentParams) => ({
       page: 1,
-      page_size: params.page_size ?? DEFAULT_PAGE_SIZE,
-    });
-  }, [beginRequest, params.page_size]);
+      page_size: currentParams.page_size ?? DEFAULT_PAGE_SIZE,
+      ordering: "-fecha_creacion",
+    }));
+  }, [beginRequest]);
 
   const reload = useCallback(() => {
     beginRequest();
@@ -159,12 +144,10 @@ export function useClientes() {
     currentPage,
     pageSize,
     totalPages,
-    estado: params.estado ?? "",
     search: params.search ?? "",
     isLoading,
     errorMessage,
     setSearch,
-    setEstado,
     setPage,
     setPageSize,
     clearFilters,

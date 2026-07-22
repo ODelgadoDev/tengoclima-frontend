@@ -1,7 +1,7 @@
 import {
   Calculator,
   FileText,
-  ImagePlus,
+  Info,
   RefreshCcw,
   Save,
 } from "lucide-react";
@@ -9,11 +9,10 @@ import { useMemo, useState, type FormEvent } from "react";
 
 import type {
   CotizacionFormValues,
-  EstadoCotizacion,
   TipoCotizacion,
 } from "../../types/cotizacion";
 import {
-  ESTADOS_COTIZACION,
+  parseMoney,
   TIPOS_COTIZACION,
 } from "../../utils/cotizacionUtils";
 import { formatCurrency } from "../../utils/formatCurrency";
@@ -42,7 +41,9 @@ export function CotizacionForm({
     () =>
       form.conceptos.reduce(
         (total, concepto) =>
-          total + concepto.cantidad * concepto.precioUnitario,
+          total +
+          parseMoney(concepto.cantidad) *
+            parseMoney(concepto.precioUnitario),
         0,
       ),
     [form.conceptos],
@@ -79,11 +80,19 @@ export function CotizacionForm({
         return "Todos los conceptos deben tener descripción.";
       }
 
-      if (concepto.cantidad <= 0) {
+      if (!concepto.cantidad.trim()) {
+        return "Captura la cantidad de todos los conceptos.";
+      }
+
+      if (parseMoney(concepto.cantidad) <= 0) {
         return "La cantidad de cada concepto debe ser mayor a cero.";
       }
 
-      if (concepto.precioUnitario < 0) {
+      if (!concepto.precioUnitario.trim()) {
+        return "Captura el precio unitario de todos los conceptos.";
+      }
+
+      if (parseMoney(concepto.precioUnitario) < 0) {
         return "El precio unitario no puede ser negativo.";
       }
     }
@@ -117,9 +126,7 @@ export function CotizacionForm({
             {mode === "edit" ? "Editar cotización" : "Nueva cotización"}
           </h2>
           <p className="text-slate-500">
-            {mode === "edit"
-              ? "Actualiza los datos y conceptos de la cotización."
-              : "Registra la cotización y sus conceptos en el sistema."}
+            Registra al cliente, el trabajo y sus conceptos.
           </p>
         </div>
 
@@ -158,6 +165,15 @@ export function CotizacionForm({
         </div>
       )}
 
+      <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
+        <Info size={20} className="mt-0.5 shrink-0" />
+        <p>
+          Las cotizaciones nuevas se registran como <strong>Pendientes</strong>.
+          La autorización, cancelación o reapertura se realiza desde el listado
+          o el detalle de la cotización para conservar el historial.
+        </p>
+      </div>
+
       <section className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-[1fr_420px]">
         <div className="space-y-6">
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -171,7 +187,7 @@ export function CotizacionForm({
                   Cliente y código
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Selecciona un cliente activo y confirma el código único.
+                  Selecciona un cliente y confirma el código único.
                 </p>
               </div>
             </div>
@@ -217,16 +233,16 @@ export function CotizacionForm({
                   Información del trabajo
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Clasificación, estado, descripción y tiempo estimado.
+                  Clasificación, descripción y tiempo estimado.
                 </p>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-bold text-[#17445A]">
                   Tipo
-                </label>
+                </span>
                 <select
                   value={form.tipo}
                   onChange={(event) =>
@@ -244,35 +260,12 @@ export function CotizacionForm({
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
-                  Estado
-                </label>
-                <select
-                  value={form.estado}
-                  onChange={(event) =>
-                    updateField(
-                      "estado",
-                      event.target.value as EstadoCotizacion,
-                    )
-                  }
-                  disabled={isSubmitting}
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A] disabled:bg-slate-100"
-                >
-                  {ESTADOS_COTIZACION.map((estado) => (
-                    <option key={estado.value} value={estado.value}>
-                      {estado.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-[#17445A]">
+              <label className="block">
+                <span className="text-sm font-bold text-[#17445A]">
                   Tiempo estimado
-                </label>
+                </span>
                 <input
                   value={form.estimadoTiempo}
                   onChange={(event) =>
@@ -282,13 +275,13 @@ export function CotizacionForm({
                   disabled={isSubmitting}
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A] disabled:bg-slate-100"
                 />
-              </div>
+              </label>
             </div>
 
-            <div className="mt-4">
-              <label className="text-sm font-bold text-[#17445A]">
+            <label className="mt-4 block">
+              <span className="text-sm font-bold text-[#17445A]">
                 Descripción del trabajo *
-              </label>
+              </span>
               <textarea
                 value={form.descripcion}
                 onChange={(event) =>
@@ -300,7 +293,7 @@ export function CotizacionForm({
                 required
                 className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A] disabled:bg-slate-100"
               />
-            </div>
+            </label>
           </article>
 
           <ConceptosEditor
@@ -308,36 +301,6 @@ export function CotizacionForm({
             onChange={(conceptos) => updateField("conceptos", conceptos)}
             disabled={isSubmitting}
           />
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
-                <ImagePlus size={22} />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-black text-[#17445A]">
-                  Evidencias
-                </h3>
-                <p className="text-sm text-slate-500">
-                  La carga de fotografías se conectará en el módulo de
-                  Evidencias. Esta sección permanece como referencia visual.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {[1, 2, 3].map((photo) => (
-                <div
-                  key={photo}
-                  className="flex min-h-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400"
-                >
-                  <ImagePlus size={28} />
-                  <p className="mt-2 text-sm font-bold">Foto {photo}</p>
-                </div>
-              ))}
-            </div>
-          </article>
         </div>
 
         <aside className="space-y-6">
@@ -370,8 +333,8 @@ export function CotizacionForm({
               </div>
 
               <p className="text-xs leading-relaxed text-white/65">
-                Esta es una vista previa. Django recalcula y guarda los
-                importes oficiales después de registrar los conceptos.
+                Django recalcula y guarda los importes oficiales después de
+                registrar los conceptos.
               </p>
             </div>
           </article>

@@ -1,14 +1,22 @@
 import { cotizacionesApi } from "../api/cotizacionesApi";
 import type {
   ConceptoCotizacion,
+  ConceptoCreatePayload,
   ConceptoFormValue,
+  ConceptoUpdatePayload,
   CotizacionCreatePayload,
   CotizacionDetalle,
   CotizacionFormValues,
 } from "../types/cotizacion";
 
-function toDecimalString(value: number): string {
-  return value.toFixed(2);
+function toDecimalString(value: string, fieldName: string): string {
+  const parsedValue = Number(value.replace(",", "."));
+
+  if (!Number.isFinite(parsedValue)) {
+    throw new Error(`${fieldName} debe ser un número válido.`);
+  }
+
+  return parsedValue.toFixed(2);
 }
 
 function createCotizacionPayload(
@@ -24,7 +32,46 @@ function createCotizacionPayload(
     descripcion: values.descripcion.trim(),
     tipo: values.tipo,
     estimado_tiempo: values.estimadoTiempo.trim() || null,
-    estado: values.estado,
+  };
+}
+
+async function resolveCatalogoId(
+  concepto: ConceptoFormValue,
+): Promise<number | null> {
+  if (concepto.catalogoId !== null) {
+    return concepto.catalogoId;
+  }
+
+  if (!concepto.guardarEnCatalogo) {
+    return null;
+  }
+
+  const catalogo = await cotizacionesApi.createCatalogoConcepto({
+    descripcion: concepto.descripcion.trim(),
+    unidad: concepto.unidad,
+    precio_unitario: toDecimalString(
+      concepto.precioUnitario,
+      "El precio unitario",
+    ),
+  });
+
+  return catalogo.id;
+}
+
+async function createConceptoPayload(
+  cotizacionId: number,
+  concepto: ConceptoFormValue,
+): Promise<ConceptoCreatePayload> {
+  return {
+    cotizacion: cotizacionId,
+    catalogo: await resolveCatalogoId(concepto),
+    descripcion: concepto.descripcion.trim(),
+    unidad: concepto.unidad,
+    cantidad: toDecimalString(concepto.cantidad, "La cantidad"),
+    precio_unitario: toDecimalString(
+      concepto.precioUnitario,
+      "El precio unitario",
+    ),
   };
 }
 
@@ -35,14 +82,8 @@ async function createConceptos(
   const createdConceptos: ConceptoCotizacion[] = [];
 
   for (const concepto of conceptos) {
-    const createdConcepto = await cotizacionesApi.createConcepto({
-      cotizacion: cotizacionId,
-      descripcion: concepto.descripcion.trim(),
-      unidad: concepto.unidad,
-      cantidad: toDecimalString(concepto.cantidad),
-      precio_unitario: toDecimalString(concepto.precioUnitario),
-    });
-
+    const payload = await createConceptoPayload(cotizacionId, concepto);
+    const createdConcepto = await cotizacionesApi.createConcepto(payload);
     createdConceptos.push(createdConcepto);
   }
 
@@ -106,20 +147,25 @@ export const cotizacionesService = {
     }
 
     for (const concepto of values.conceptos) {
-      const payload = {
-        descripcion: concepto.descripcion.trim(),
-        unidad: concepto.unidad,
-        cantidad: toDecimalString(concepto.cantidad),
-        precio_unitario: toDecimalString(concepto.precioUnitario),
-      };
+      const payload = await createConceptoPayload(
+        cotizacionId,
+        concepto,
+      );
 
       if (concepto.id !== undefined) {
-        await cotizacionesApi.updateConcepto(concepto.id, payload);
+        const updatePayload: ConceptoUpdatePayload = {
+          catalogo: payload.catalogo,
+          descripcion: payload.descripcion,
+          unidad: payload.unidad,
+          cantidad: payload.cantidad,
+          precio_unitario: payload.precio_unitario,
+        };
+        await cotizacionesApi.updateConcepto(
+          concepto.id,
+          updatePayload,
+        );
       } else {
-        await cotizacionesApi.createConcepto({
-          cotizacion: cotizacionId,
-          ...payload,
-        });
+        await cotizacionesApi.createConcepto(payload);
       }
     }
 

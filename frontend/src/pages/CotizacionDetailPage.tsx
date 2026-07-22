@@ -5,6 +5,7 @@ import {
   Pencil,
   Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
 import { cotizacionesApi } from "../api/cotizacionesApi";
 import { usePermissions } from "../auth/usePermissions";
 import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
+import { CotizacionEstadoActions } from "../components/cotizaciones/CotizacionEstadoActions";
 import type { CotizacionDetalle } from "../types/cotizacion";
 import {
   ESTADO_COBRANZA_LABELS,
@@ -46,12 +48,14 @@ export function CotizacionDetailPage() {
   const [cotizacion, setCotizacion] =
     useState<CotizacionDetalle | null>(null);
   const [isLoading, setIsLoading] = useState(isValidId);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [errorMessage, setErrorMessage] = useState(
     isValidId ? "" : "El identificador de la cotización no es válido.",
   );
   const [successMessage, setSuccessMessage] = useState(
     locationState?.message ?? "",
   );
+  const [actionError, setActionError] = useState("");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -89,7 +93,7 @@ export function CotizacionDetailPage() {
     return () => {
       isActive = false;
     };
-  }, [cotizacionId, isValidId]);
+  }, [cotizacionId, isValidId, refreshKey]);
 
   useEffect(() => {
     if (locationState?.message) {
@@ -97,7 +101,14 @@ export function CotizacionDetailPage() {
     }
   }, [location.pathname, locationState?.message, navigate]);
 
-  if (isLoading) {
+  const handleEstadoChanged = (message: string) => {
+    setActionError("");
+    setSuccessMessage(message);
+    setIsLoading(true);
+    setRefreshKey((current) => current + 1);
+  };
+
+  if (isLoading && !cotizacion) {
     return (
       <div className="flex min-h-72 items-center justify-center rounded-2xl border border-slate-200 bg-white">
         <div className="text-center">
@@ -147,7 +158,12 @@ export function CotizacionDetailPage() {
         </div>
 
         {canManage && (
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <CotizacionEstadoActions
+              cotizacion={cotizacion}
+              onChanged={handleEstadoChanged}
+              onError={setActionError}
+            />
             <Link
               to={`/cotizaciones/${cotizacion.id}/editar`}
               className="flex items-center justify-center gap-2 rounded-xl border border-[#255F7A] px-5 py-3 font-bold text-[#255F7A] transition hover:bg-[#E8F1F5]"
@@ -168,14 +184,29 @@ export function CotizacionDetailPage() {
       </div>
 
       {successMessage && (
-        <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-          {successMessage}
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
+          <span>{successMessage}</span>
           <button
             type="button"
             onClick={() => setSuccessMessage("")}
-            className="ml-3 underline"
+            aria-label="Cerrar mensaje"
+            className="rounded-lg p-1 hover:bg-emerald-100"
           >
-            Cerrar
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError("")}
+            aria-label="Cerrar error"
+            className="rounded-lg p-1 hover:bg-red-100"
+          >
+            <X size={18} />
           </button>
         </div>
       )}
@@ -289,6 +320,7 @@ export function CotizacionDetailPage() {
             <thead className="bg-[#E8F1F5] text-[#17445A]">
               <tr>
                 <th className="p-4 text-left">Descripción</th>
+                <th className="p-4 text-left">Origen</th>
                 <th className="p-4 text-left">Unidad</th>
                 <th className="p-4 text-right">Cantidad</th>
                 <th className="p-4 text-right">Precio unitario</th>
@@ -303,6 +335,9 @@ export function CotizacionDetailPage() {
                 >
                   <td className="p-4 text-slate-700">
                     {concepto.descripcion}
+                  </td>
+                  <td className="p-4 text-slate-600">
+                    {concepto.catalogo ? "Catálogo" : "Manual"}
                   </td>
                   <td className="p-4 text-slate-600">
                     {formatUnidadConcepto(concepto.unidad)}

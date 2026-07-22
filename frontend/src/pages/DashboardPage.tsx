@@ -41,7 +41,7 @@ export function DashboardPage() {
         {
           titulo: "Cotizaciones",
           valor: data.resumen.cotizaciones.toString(),
-          descripcion: `${data.resumen.cotizaciones_autorizadas} autorizadas · ${data.resumen.cotizaciones_rechazadas} rechazadas`,
+          descripcion: `${data.resumen.cotizaciones_autorizadas} autorizadas · ${data.resumen.cotizaciones_canceladas} canceladas`,
         },
         {
           titulo: "Proyectos",
