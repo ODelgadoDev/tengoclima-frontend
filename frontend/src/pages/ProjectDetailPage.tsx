@@ -14,11 +14,18 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { proyectosApi } from "../api/proyectosApi";
 import { usePermissions } from "../auth/usePermissions";
-import { EvidenciasGallery } from "../components/evidencias/EvidenciasGallery";
+import { ArchivosTrabajoPanel } from "../components/evidencias/ArchivosTrabajoPanel";
+import { FacturasPanel } from "../components/cobranza/FacturasPanel";
+import { FacturacionStatusBadge } from "../components/cobranza/FacturacionStatusBadge";
+import { ProyectoCotizacionesManager } from "../components/proyectos/ProyectoCotizacionesManager";
 import { ProyectoDeleteModal } from "../components/proyectos/ProyectoDeleteModal";
 import { ProyectoFormModal } from "../components/proyectos/ProyectoFormModal";
 import { ProyectoStatusBadge } from "../components/proyectos/ProyectoStatusBadge";
 import type { Proyecto, ProyectoDetalle } from "../types/proyecto";
+import {
+  ESTADO_COBRANZA_LABELS,
+  ESTADO_COBRANZA_STYLES,
+} from "../utils/cotizacionUtils";
 import { formatCurrency } from "../utils/formatCurrency";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
 import {
@@ -91,6 +98,14 @@ export function ProjectDetailPage() {
     reload();
   };
 
+  const handleCotizacionesUpdated = (
+    updated: ProyectoDetalle,
+    message: string,
+  ) => {
+    setProyecto(updated);
+    setSuccessMessage(message);
+  };
+
   const handleDeleted = () => {
     setShowDelete(false);
     navigate("/proyectos", {
@@ -143,9 +158,18 @@ export function ProjectDetailPage() {
               {proyecto.nombre}
             </h2>
             <ProyectoStatusBadge estado={proyecto.estado} />
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-black ${
+                ESTADO_COBRANZA_STYLES[proyecto.estado_cobranza]
+              }`}
+            >
+              {ESTADO_COBRANZA_LABELS[proyecto.estado_cobranza]}
+            </span>
+            <FacturacionStatusBadge estado={proyecto.estado_facturacion} />
           </div>
           <p className="mt-1 text-slate-500">
-            Proyecto {proyecto.id} · Cotización {proyecto.cotizacion_codigo}
+            Proyecto {proyecto.id} · {proyecto.cotizaciones_count} cotización
+            {proyecto.cotizaciones_count === 1 ? "" : "es"}
           </p>
         </div>
 
@@ -198,7 +222,7 @@ export function ProjectDetailPage() {
         <div className="space-y-6">
           <DetailCard
             title="Cliente y ubicación"
-            description="Información heredada de la cotización de origen."
+            description="Todas las cotizaciones del proyecto deben pertenecer a este cliente."
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <InfoItem
@@ -261,51 +285,66 @@ export function ProjectDetailPage() {
             </div>
           </DetailCard>
 
-          <DetailCard
-            title="Cotización de origen"
-            description="Descripción aprobada y vínculo al documento comercial."
-          >
-            <div className="rounded-xl bg-[#E8F1F5] p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-black text-[#17445A]">
-                    {proyecto.cotizacion_codigo}
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-[#255F7A]">
-                    Estado: {proyecto.cotizacion_estado}
-                  </p>
-                </div>
-                <Link
-                  to={`/cotizaciones/${proyecto.cotizacion}`}
-                  className="rounded-xl bg-[#255F7A] px-4 py-2 text-center text-sm font-bold text-white transition hover:bg-[#17445A]"
-                >
-                  Abrir cotización
-                </Link>
-              </div>
-              <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                {proyecto.cotizacion_descripcion}
-              </p>
-            </div>
-          </DetailCard>
-
-          <EvidenciasGallery
-            cotizacionId={proyecto.cotizacion}
-            cotizacionCodigo={proyecto.cotizacion_codigo}
+          <ProyectoCotizacionesManager
+            proyecto={proyecto}
+            onUpdated={handleCotizacionesUpdated}
           />
+
+          <FacturasPanel
+            proyectoId={proyecto.id}
+            cotizaciones={proyecto.cotizaciones}
+            title="Facturas del proyecto"
+            description="Facturas de todas las cotizaciones vinculadas. Cada documento conserva su cotización de origen."
+            onChanged={reload}
+          />
+
+          <ArchivosTrabajoPanel
+            proyectoId={proyecto.id}
+            origenNombre={`Proyecto ${proyecto.nombre}`}
+            title="Archivos propios del proyecto"
+            description="Referencias, evidencias y archivos técnicos cargados directamente al proyecto. Descargar todo incluye también sus cotizaciones."
+            incluirCotizacionesEnZip
+          />
+
+          {proyecto.cotizaciones.map((cotizacion) => (
+            <ArchivosTrabajoPanel
+              key={cotizacion.id}
+              cotizacionId={cotizacion.id}
+              origenNombre={`Cotización ${cotizacion.codigo}`}
+              title={`Archivos de ${cotizacion.codigo}`}
+              description="Referencias, evidencias y documentación técnica de esta cotización vinculada."
+            />
+          ))}
         </div>
 
         <aside className="space-y-6">
           <article className="rounded-2xl bg-[#17445A] p-6 text-white shadow-sm">
             <p className="text-sm font-bold text-white/70">
-              Total de cotización
+              Total del proyecto
             </p>
             <p className="mt-2 text-3xl font-black">
-              {formatCurrency(Number(proyecto.total_cotizacion))}
+              {formatCurrency(Number(proyecto.total_cotizaciones))}
             </p>
             <div className="mt-6 space-y-3 border-t border-white/15 pt-5 text-sm">
               <FinancialRow
-                label="Cotización"
-                value={proyecto.cotizacion_codigo}
+                label="Cotizaciones"
+                value={String(proyecto.cotizaciones_count)}
+              />
+              <FinancialRow
+                label="Facturado"
+                value={formatCurrency(Number(proyecto.total_facturado))}
+              />
+              <FinancialRow
+                label="Por facturar"
+                value={formatCurrency(Number(proyecto.saldo_por_facturar))}
+              />
+              <FinancialRow
+                label="Pagado"
+                value={formatCurrency(Number(proyecto.total_pagado))}
+              />
+              <FinancialRow
+                label="Saldo"
+                value={formatCurrency(Number(proyecto.saldo_pendiente))}
               />
               <FinancialRow
                 label="Cliente"

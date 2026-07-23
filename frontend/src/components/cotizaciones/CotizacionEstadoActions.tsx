@@ -59,7 +59,7 @@ export function CotizacionEstadoActions({
     }
   };
 
-  if (cotizacion.estado === "CONVERTIDA") {
+  if (cotizacion.estado === "CONVERTIDA" || cotizacion.proyecto !== null) {
     return null;
   }
 

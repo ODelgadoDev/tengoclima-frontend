@@ -29,6 +29,8 @@ function normalizeCotizacionesParams(
     estado: params.estado || undefined,
     tipo: params.tipo || undefined,
     cliente: params.cliente,
+    proyecto: params.proyecto,
+    sin_proyecto: params.sin_proyecto || undefined,
     ordering: params.ordering?.trim() || undefined,
   };
 }

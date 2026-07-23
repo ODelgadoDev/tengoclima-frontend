@@ -1,3 +1,10 @@
+import type {
+  EstadoCobranza,
+  EstadoCotizacion,
+  EstadoFacturacion,
+  TipoCotizacion,
+} from "./cotizacion";
+
 export type EstadoProyecto =
   | "PENDIENTE"
   | "EN_PROCESO"
@@ -16,17 +23,35 @@ export interface UsuarioResponsable {
   rol: string;
 }
 
+export interface CotizacionProyectoResumen {
+  id: number;
+  codigo: string;
+  cliente: number;
+  cliente_nombre: string;
+  descripcion: string;
+  tipo: TipoCotizacion;
+  estado: EstadoCotizacion;
+  subtotal: string;
+  iva: string;
+  total: string;
+  total_pagado: string;
+  saldo_pendiente: string;
+  estado_cobranza: EstadoCobranza;
+  facturas_count: number;
+  total_facturado: string;
+  saldo_por_facturar: string;
+  estado_facturacion: EstadoFacturacion;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
+
 export interface Proyecto {
   id: number;
-  cotizacion: number;
-  cotizacion_codigo: string;
-  cotizacion_estado: string;
-  cotizacion_descripcion: string;
+  cliente: number;
   cliente_nombre: string;
   cliente_empresa: string;
   cliente_telefono: string;
   cliente_direccion: string;
-  total_cotizacion: string;
   nombre: string;
   responsable: number | null;
   responsable_username: string | null;
@@ -36,6 +61,15 @@ export interface Proyecto {
   fecha_fin_real: string | null;
   estado: EstadoProyecto;
   notas: string | null;
+  cotizaciones: CotizacionProyectoResumen[];
+  cotizaciones_count: number;
+  total_cotizaciones: string;
+  total_pagado: string;
+  saldo_pendiente: string;
+  estado_cobranza: EstadoCobranza;
+  total_facturado: string;
+  saldo_por_facturar: string;
+  estado_facturacion: EstadoFacturacion;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -50,7 +84,7 @@ export interface ProyectoDetalle extends Proyecto {
 }
 
 export interface ProyectoCreatePayload {
-  cotizacion: number;
+  cliente: number;
   nombre: string;
   responsable: number | null;
   fecha_inicio: string | null;
@@ -58,10 +92,11 @@ export interface ProyectoCreatePayload {
   fecha_fin_real: string | null;
   estado: EstadoProyecto;
   notas: string | null;
+  cotizaciones_ids?: number[];
 }
 
 export type ProyectoUpdatePayload = Partial<
-  Omit<ProyectoCreatePayload, "cotizacion">
+  Omit<ProyectoCreatePayload, "cotizaciones_ids">
 >;
 
 export interface ProyectosQueryParams {
@@ -70,7 +105,8 @@ export interface ProyectosQueryParams {
   search?: string;
   estado?: EstadoProyecto;
   responsable?: number;
-  cotizacion?: number;
+  cliente?: number;
+  cotizaciones?: number;
   ordering?: string;
 }
 
@@ -86,8 +122,15 @@ export interface RestoreProyectoResponse {
   message: string;
 }
 
+export interface ProyectoCotizacionActionResponse {
+  success: boolean;
+  message: string;
+  proyecto: ProyectoDetalle;
+}
+
 export interface ProyectoFormValues {
-  cotizacion: number | null;
+  cliente: number | null;
+  cotizacionesIds: number[];
   nombre: string;
   responsable: number | null;
   fechaInicio: string;

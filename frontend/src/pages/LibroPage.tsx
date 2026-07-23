@@ -2,12 +2,14 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  Download,
   Edit3,
   ExternalLink,
+  FileDown,
+  FileSpreadsheet,
   FileText,
   FolderCog,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   TrendingDown,
@@ -15,6 +17,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { contabilidadApi } from "../api/contabilidadApi";
 import { usePermissions } from "../auth/usePermissions";
 import { CategoriasGastoModal } from "../components/contabilidad/CategoriasGastoModal";
@@ -22,18 +25,21 @@ import { GastoDeleteModal } from "../components/contabilidad/GastoDeleteModal";
 import { GastoFormModal } from "../components/contabilidad/GastoFormModal";
 import { GastosTrashModal } from "../components/contabilidad/GastosTrashModal";
 import { MetodoPagoBadge } from "../components/contabilidad/MetodoPagoBadge";
+import { MovimientoTipoBadge } from "../components/contabilidad/MovimientoTipoBadge";
 import {
   useCategoriasGasto,
-  useFinanzasContabilidad,
-  useGastos,
+  useLibroContable,
+  useLibroOpciones,
 } from "../hooks/useContabilidad";
 import type {
   Gasto,
-  GastosQueryParams,
+  LibroQueryParams,
   MetodoPagoGasto,
+  OrdenLibro,
+  TipoMovimientoLibro,
 } from "../types/contabilidad";
 import {
-  downloadGastosCsv,
+  downloadLibroFile,
   formatDate,
   getComprobanteUrl,
   getMetodoPagoLabel,
@@ -50,113 +56,202 @@ const metodos: MetodoPagoGasto[] = [
   "OTRO",
 ];
 
+const emptyValue = "";
+
 export function LibroPage() {
   const { canManage } = usePermissions();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+  const [tipo, setTipo] = useState<TipoMovimientoLibro | "">(emptyValue);
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [proyectoId, setProyectoId] = useState("");
+  const [cotizacionId, setCotizacionId] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [metodoPago, setMetodoPago] = useState<MetodoPagoGasto | "">("");
-  const [fechaGasto, setFechaGasto] = useState("");
+  const [ordering, setOrdering] = useState<OrdenLibro>("-fecha");
   const [editingGasto, setEditingGasto] = useState<Gasto | null>(null);
   const [deletingGasto, setDeletingGasto] = useState<Gasto | null>(null);
+  const [loadingGastoId, setLoadingGastoId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exporting, setExporting] = useState<"excel" | "csv" | null>(null);
   const [actionError, setActionError] = useState("");
 
   const categoriasResult = useCategoriasGasto();
-  const finanzasResult = useFinanzasContabilidad();
-  const gastosResult = useGastos({
+  const opcionesResult = useLibroOpciones();
+
+  const libroResult = useLibroContable({
     page,
     page_size: pageSize,
     search: deferredSearch || undefined,
+    tipo: tipo || undefined,
+    fecha_desde: fechaDesde || undefined,
+    fecha_hasta: fechaHasta || undefined,
+    cliente: clienteId ? Number(clienteId) : undefined,
+    proyecto: proyectoId ? Number(proyectoId) : undefined,
+    cotizacion: cotizacionId ? Number(cotizacionId) : undefined,
     categoria: categoriaId ? Number(categoriaId) : undefined,
     metodo_pago: metodoPago || undefined,
-    fecha_gasto: fechaGasto || undefined,
-    ordering: "-fecha_gasto",
+    ordering,
   });
 
-  const visibleTotal = useMemo(
+  const proyectosFiltrados = useMemo(() => {
+    if (!clienteId) return opcionesResult.proyectos;
+    const selectedClientId = Number(clienteId);
+    return opcionesResult.proyectos.filter(
+      (proyecto) => proyecto.cliente === selectedClientId,
+    );
+  }, [clienteId, opcionesResult.proyectos]);
+
+  const cotizacionesFiltradas = useMemo(() => {
+    return opcionesResult.cotizaciones.filter((cotizacion) => {
+      if (clienteId && cotizacion.cliente !== Number(clienteId)) return false;
+      if (proyectoId && cotizacion.proyecto !== Number(proyectoId)) return false;
+      return true;
+    });
+  }, [clienteId, opcionesResult.cotizaciones, proyectoId]);
+
+  const pageTotal = useMemo(
     () =>
-      gastosResult.gastos.reduce(
-        (total, gasto) => total + toMoneyNumber(gasto.monto),
+      libroResult.movimientos.reduce(
+        (total, movimiento) => total + toMoneyNumber(movimiento.monto),
         0,
       ),
-    [gastosResult.gastos],
+    [libroResult.movimientos],
   );
 
   const totalPages = Math.max(
     1,
-    Math.ceil(gastosResult.count / Math.max(pageSize, 1)),
+    Math.ceil(libroResult.count / Math.max(pageSize, 1)),
   );
 
-  const exportParams: Omit<GastosQueryParams, "page" | "page_size"> = {
+  const exportParams: Omit<LibroQueryParams, "page" | "page_size"> = {
     search: deferredSearch || undefined,
+    tipo: tipo || undefined,
+    fecha_desde: fechaDesde || undefined,
+    fecha_hasta: fechaHasta || undefined,
+    cliente: clienteId ? Number(clienteId) : undefined,
+    proyecto: proyectoId ? Number(proyectoId) : undefined,
+    cotizacion: cotizacionId ? Number(cotizacionId) : undefined,
     categoria: categoriaId ? Number(categoriaId) : undefined,
     metodo_pago: metodoPago || undefined,
-    fecha_gasto: fechaGasto || undefined,
-    ordering: "-fecha_gasto",
+    ordering,
   };
 
   const reloadAll = () => {
-    gastosResult.reload();
-    finanzasResult.reload();
+    libroResult.reload();
   };
 
   const clearFilters = () => {
     setSearch("");
+    setTipo("");
+    setFechaDesde("");
+    setFechaHasta("");
+    setClienteId("");
+    setProyectoId("");
+    setCotizacionId("");
     setCategoriaId("");
     setMetodoPago("");
-    setFechaGasto("");
+    setOrdering("-fecha");
     setPage(1);
   };
 
-  const handleExport = async () => {
+  const handleClienteChange = (value: string) => {
+    setClienteId(value);
+    setProyectoId("");
+    setCotizacionId("");
+    setPage(1);
+  };
+
+  const handleProyectoChange = (value: string) => {
+    setProyectoId(value);
+    setCotizacionId("");
+    setPage(1);
+  };
+
+  const handleExport = async (format: "excel" | "csv") => {
     try {
-      setIsExporting(true);
+      setExporting(format);
       setActionError("");
-      const gastos = await contabilidadApi.getAllGastos(exportParams);
-      if (gastos.length === 0) {
-        setActionError("No hay gastos para exportar con los filtros actuales.");
-        return;
-      }
-      downloadGastosCsv(gastos);
+      const download =
+        format === "excel"
+          ? await contabilidadApi.exportLibroExcel(exportParams)
+          : await contabilidadApi.exportLibroCsv(exportParams);
+      downloadLibroFile(download);
     } catch (error) {
       setActionError(
-        getApiErrorMessage(error, "No fue posible exportar los gastos."),
+        getApiErrorMessage(
+          error,
+          `No fue posible exportar el libro en ${format.toUpperCase()}.`,
+        ),
       );
     } finally {
-      setIsExporting(false);
+      setExporting(null);
+    }
+  };
+
+  const loadGastoForAction = async (
+    gastoId: number,
+    action: "edit" | "delete",
+  ) => {
+    try {
+      setLoadingGastoId(gastoId);
+      setActionError("");
+      const gasto = await contabilidadApi.getGasto(gastoId);
+      if (action === "edit") setEditingGasto(gasto);
+      else setDeletingGasto(gasto);
+    } catch (error) {
+      setActionError(
+        getApiErrorMessage(error, "No fue posible consultar el gasto."),
+      );
+    } finally {
+      setLoadingGastoId(null);
     }
   };
 
   const combinedError =
     actionError ||
-    gastosResult.errorMessage ||
+    libroResult.errorMessage ||
     categoriasResult.errorMessage ||
-    finanzasResult.errorMessage;
+    opcionesResult.errorMessage;
+
+  const utilidad = toMoneyNumber(libroResult.resumen.utilidad);
+  const ivaNeto = toMoneyNumber(libroResult.resumen.iva_neto);
 
   return (
     <div>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-[#17445A]">Libro</h2>
+          <h2 className="text-2xl font-black text-[#17445A]">
+            Libro contable
+          </h2>
           <p className="text-slate-500">
-            Registro real de gastos, comprobantes y resultado financiero.
+            Ingresos, gastos, utilidad e IVA con filtros y exportación real.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => void handleExport()}
-            disabled={isExporting}
+            onClick={() => void handleExport("excel")}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+          >
+            <FileSpreadsheet size={18} />
+            {exporting === "excel" ? "Generando..." : "Exportar Excel"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExport("csv")}
+            disabled={exporting !== null}
             className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
-            <Download size={18} />
-            {isExporting ? "Exportando..." : "Exportar CSV"}
+            <FileDown size={18} />
+            {exporting === "csv" ? "Generando..." : "Exportar CSV"}
           </button>
           {canManage && (
             <>
@@ -186,68 +281,83 @@ export function LibroPage() {
         </div>
       </div>
 
-      <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-2xl bg-[#17445A] p-6 text-white shadow-sm">
+      <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <article className="rounded-2xl bg-[#17445A] p-5 text-white shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-white/75">Monto cobrado</p>
-            <TrendingUp size={22} className="text-white/70" />
+            <p className="text-sm font-bold text-white/75">Ingresos</p>
+            <TrendingUp size={21} className="text-white/70" />
           </div>
-          <h3 className="mt-2 text-3xl font-black">
-            {finanzasResult.isLoading
-              ? "—"
-              : formatCurrency(finanzasResult.finanzas.monto_cobrado)}
+          <h3 className="mt-2 text-2xl font-black">
+            {formatCurrency(toMoneyNumber(libroResult.resumen.ingresos))}
           </h3>
-          <p className="mt-2 text-sm text-white/75">Ingresos registrados.</p>
+          <p className="mt-2 text-xs text-white/70">
+            {libroResult.resumen.ingresos_count} pago(s)
+          </p>
         </article>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-[#255F7A]">Total de gastos</p>
-            <TrendingDown size={22} className="text-red-500" />
+            <p className="text-sm font-bold text-[#255F7A]">Gastos</p>
+            <TrendingDown size={21} className="text-red-500" />
           </div>
-          <h3 className="mt-2 text-3xl font-black text-red-600">
-            {finanzasResult.isLoading
-              ? "—"
-              : formatCurrency(finanzasResult.finanzas.total_gastos)}
+          <h3 className="mt-2 text-2xl font-black text-red-600">
+            {formatCurrency(toMoneyNumber(libroResult.resumen.gastos))}
           </h3>
-          <p className="mt-2 text-sm text-slate-500">Egresos activos acumulados.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            {libroResult.resumen.gastos_count} gasto(s)
+          </p>
         </article>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-[#255F7A]">Utilidad actual</p>
-            <WalletCards size={22} className="text-green-600" />
+            <p className="text-sm font-bold text-[#255F7A]">Utilidad</p>
+            <WalletCards size={21} className="text-green-600" />
           </div>
           <h3
-            className={`mt-2 text-3xl font-black ${
-              finanzasResult.finanzas.utilidad >= 0
-                ? "text-green-700"
-                : "text-red-600"
+            className={`mt-2 text-2xl font-black ${
+              utilidad >= 0 ? "text-green-700" : "text-red-600"
             }`}
           >
-            {finanzasResult.isLoading
-              ? "—"
-              : formatCurrency(finanzasResult.finanzas.utilidad)}
+            {formatCurrency(utilidad)}
           </h3>
-          <p className="mt-2 text-sm text-slate-500">Cobrado menos gastos.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Ingresos menos gastos
+          </p>
         </article>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-[#255F7A]">Registros</p>
-            <BookOpen size={22} className="text-[#F5822A]" />
+            <p className="text-sm font-bold text-[#255F7A]">IVA neto</p>
+            <BookOpen size={21} className="text-[#F5822A]" />
           </div>
-          <h3 className="mt-2 text-3xl font-black text-[#17445A]">
-            {gastosResult.count}
+          <h3
+            className={`mt-2 text-2xl font-black ${
+              ivaNeto >= 0 ? "text-[#17445A]" : "text-red-600"
+            }`}
+          >
+            {formatCurrency(ivaNeto)}
           </h3>
-          <p className="mt-2 text-sm text-slate-500">
-            Página actual: {formatCurrency(visibleTotal)}
+          <p className="mt-2 text-xs text-slate-500">
+            Cobrado menos acreditable
+          </p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-[#255F7A]">Movimientos</p>
+            <FileText size={21} className="text-[#255F7A]" />
+          </div>
+          <h3 className="mt-2 text-2xl font-black text-[#17445A]">
+            {libroResult.resumen.movimientos}
+          </h3>
+          <p className="mt-2 text-xs text-slate-500">
+            Con los filtros actuales
           </p>
         </article>
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px_220px_190px]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_180px_180px_180px]">
           <div className="relative">
             <Search
               size={18}
@@ -259,10 +369,94 @@ export function LibroPage() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              placeholder="Buscar concepto, proveedor, categoría o notas..."
+              placeholder="Buscar cliente, proyecto, cotización, factura, proveedor..."
               className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-4 outline-none focus:border-[#F5822A]"
             />
           </div>
+
+          <select
+            value={tipo}
+            onChange={(event) => {
+              setTipo(event.target.value as TipoMovimientoLibro | "");
+              setPage(1);
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+          >
+            <option value="">Ingresos y gastos</option>
+            <option value="INGRESO">Solo ingresos</option>
+            <option value="GASTO">Solo gastos</option>
+          </select>
+
+          <input
+            type="date"
+            value={fechaDesde}
+            max={fechaHasta || undefined}
+            onChange={(event) => {
+              setFechaDesde(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Fecha desde"
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+          />
+
+          <input
+            type="date"
+            value={fechaHasta}
+            min={fechaDesde || undefined}
+            onChange={(event) => {
+              setFechaHasta(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Fecha hasta"
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <select
+            value={clienteId}
+            onChange={(event) => handleClienteChange(event.target.value)}
+            disabled={opcionesResult.isLoading}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A] disabled:bg-slate-50"
+          >
+            <option value="">Todos los clientes</option>
+            {opcionesResult.clientes.map((cliente) => (
+              <option key={cliente.id} value={cliente.id}>
+                {cliente.empresa || cliente.nombre_solicitante}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={proyectoId}
+            onChange={(event) => handleProyectoChange(event.target.value)}
+            disabled={opcionesResult.isLoading}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A] disabled:bg-slate-50"
+          >
+            <option value="">Todos los proyectos</option>
+            {proyectosFiltrados.map((proyecto) => (
+              <option key={proyecto.id} value={proyecto.id}>
+                {proyecto.nombre}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={cotizacionId}
+            onChange={(event) => {
+              setCotizacionId(event.target.value);
+              setPage(1);
+            }}
+            disabled={opcionesResult.isLoading}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A] disabled:bg-slate-50"
+          >
+            <option value="">Todas las cotizaciones</option>
+            {cotizacionesFiltradas.map((cotizacion) => (
+              <option key={cotizacion.id} value={cotizacion.id}>
+                {cotizacion.codigo} · {cotizacion.cliente_nombre}
+              </option>
+            ))}
+          </select>
 
           <select
             value={categoriaId}
@@ -289,7 +483,7 @@ export function LibroPage() {
             }}
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
           >
-            <option value="">Todos los métodos</option>
+            <option value="">Todos los métodos de pago</option>
             {metodos.map((metodo) => (
               <option key={metodo} value={metodo}>
                 {getMetodoPagoLabel(metodo)}
@@ -297,28 +491,41 @@ export function LibroPage() {
             ))}
           </select>
 
-          <input
-            type="date"
-            value={fechaGasto}
+          <select
+            value={ordering}
             onChange={(event) => {
-              setFechaGasto(event.target.value);
+              setOrdering(event.target.value as OrdenLibro);
               setPage(1);
             }}
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
-          />
+          >
+            <option value="-fecha">Más recientes primero</option>
+            <option value="fecha">Más antiguos primero</option>
+            <option value="-monto">Mayor importe primero</option>
+            <option value="monto">Menor importe primero</option>
+          </select>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-slate-500">
-            {gastosResult.count} gasto(s) con los filtros actuales.
+            {libroResult.count} movimiento(s) con los filtros actuales.
           </p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="text-sm font-black text-[#255F7A] hover:text-[#F5822A]"
-          >
-            Limpiar filtros
-          </button>
+          <div className="flex flex-wrap gap-4">
+            <button
+              type="button"
+              onClick={libroResult.reload}
+              className="inline-flex items-center gap-2 text-sm font-black text-[#255F7A] hover:text-[#F5822A]"
+            >
+              <RefreshCw size={15} /> Actualizar
+            </button>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm font-black text-[#255F7A] hover:text-[#F5822A]"
+            >
+              Limpiar filtros
+            </button>
+          </div>
         </div>
       </section>
 
@@ -328,18 +535,18 @@ export function LibroPage() {
         </div>
       )}
 
-      {gastosResult.isLoading ? (
+      {libroResult.isLoading ? (
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-10 text-center font-semibold text-slate-500 shadow-sm">
           Cargando libro contable...
         </section>
-      ) : gastosResult.gastos.length === 0 ? (
+      ) : libroResult.movimientos.length === 0 ? (
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <FileText size={38} className="mx-auto text-slate-300" />
           <h3 className="mt-3 text-xl font-black text-[#17445A]">
-            No hay gastos registrados
+            No hay movimientos
           </h3>
           <p className="mt-2 text-slate-500">
-            Registra el primer gasto o cambia los filtros actuales.
+            Registra pagos o gastos, o cambia los filtros actuales.
           </p>
         </section>
       ) : (
@@ -347,10 +554,10 @@ export function LibroPage() {
           <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-black text-[#17445A]">
-                Registro de gastos
+                Movimientos contables
               </h3>
               <p className="text-sm text-slate-500">
-                Los comprobantes se almacenan en el backend.
+                Ingresos provenientes de cobranza y gastos activos.
               </p>
             </div>
             <select
@@ -368,43 +575,99 @@ export function LibroPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[1320px] text-sm">
               <thead className="bg-[#E8F1F5] text-[#17445A]">
                 <tr>
                   <th className="p-4 text-left">Fecha</th>
-                  <th className="p-4 text-left">Categoría</th>
-                  <th className="p-4 text-left">Concepto / Proveedor</th>
+                  <th className="p-4 text-left">Tipo</th>
+                  <th className="p-4 text-left">Concepto</th>
+                  <th className="p-4 text-left">Relación</th>
                   <th className="p-4 text-left">Método</th>
-                  <th className="p-4 text-center">Comprobante</th>
-                  <th className="p-4 text-right">Monto</th>
-                  {canManage && (
-                    <th className="p-4 text-center">Acciones</th>
-                  )}
+                  <th className="p-4 text-right">Subtotal</th>
+                  <th className="p-4 text-right">IVA</th>
+                  <th className="p-4 text-right">Total</th>
+                  <th className="p-4 text-center">Archivo</th>
+                  {canManage && <th className="p-4 text-center">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
-                {gastosResult.gastos.map((gasto) => (
+                {libroResult.movimientos.map((movimiento) => (
                   <tr
-                    key={gasto.id}
-                    className="border-t border-slate-100 transition hover:bg-slate-50"
+                    key={movimiento.id}
+                    className="border-t border-slate-100 align-top transition hover:bg-slate-50"
                   >
                     <td className="p-4 font-semibold text-slate-600">
-                      {formatDate(gasto.fecha_gasto)}
-                    </td>
-                    <td className="p-4 font-bold text-[#17445A]">
-                      {gasto.categoria_nombre ?? "Sin categoría"}
+                      {formatDate(movimiento.fecha)}
                     </td>
                     <td className="p-4">
-                      <p className="font-black text-[#17445A]">{gasto.concepto}</p>
-                      <p className="text-slate-500">{gasto.proveedor ?? "—"}</p>
+                      <MovimientoTipoBadge tipo={movimiento.tipo} />
                     </td>
                     <td className="p-4">
-                      <MetodoPagoBadge metodo={gasto.metodo_pago} />
+                      <p className="font-black text-[#17445A]">
+                        {movimiento.concepto}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {movimiento.tipo === "GASTO"
+                          ? movimiento.proveedor || movimiento.categoria_nombre
+                          : movimiento.factura_folio
+                            ? `Factura ${movimiento.factura_folio}`
+                            : movimiento.categoria_nombre}
+                      </p>
+                      {movimiento.notas && (
+                        <p className="mt-1 max-w-xs text-xs text-slate-400">
+                          {movimiento.notas}
+                        </p>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="space-y-1 text-xs">
+                        <p className="font-bold text-slate-700">
+                          {movimiento.cliente_nombre || "Sin cliente"}
+                        </p>
+                        {movimiento.proyecto_id && (
+                          <Link
+                            to={`/proyectos/${movimiento.proyecto_id}`}
+                            className="block font-bold text-[#255F7A] hover:text-[#F5822A]"
+                          >
+                            {movimiento.proyecto_nombre}
+                          </Link>
+                        )}
+                        {movimiento.cotizacion_id && (
+                          <Link
+                            to={`/cotizaciones/${movimiento.cotizacion_id}`}
+                            className="block font-bold text-[#255F7A] hover:text-[#F5822A]"
+                          >
+                            {movimiento.cotizacion_codigo}
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <MetodoPagoBadge metodo={movimiento.metodo_pago} />
+                      <p className="mt-2 max-w-[180px] text-xs text-slate-500">
+                        {movimiento.referencia || "Sin referencia"}
+                      </p>
+                    </td>
+                    <td className="p-4 text-right font-bold text-slate-600">
+                      {formatCurrency(toMoneyNumber(movimiento.subtotal))}
+                    </td>
+                    <td className="p-4 text-right font-bold text-slate-600">
+                      {formatCurrency(toMoneyNumber(movimiento.iva))}
+                    </td>
+                    <td
+                      className={`p-4 text-right font-black ${
+                        movimiento.tipo === "INGRESO"
+                          ? "text-green-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {movimiento.tipo === "INGRESO" ? "+" : "−"}
+                      {formatCurrency(toMoneyNumber(movimiento.monto))}
                     </td>
                     <td className="p-4 text-center">
-                      {gasto.comprobante ? (
+                      {movimiento.comprobante ? (
                         <a
-                          href={getComprobanteUrl(gasto.comprobante)}
+                          href={getComprobanteUrl(movimiento.comprobante)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 rounded-xl bg-[#E8F1F5] px-3 py-2 text-xs font-black text-[#255F7A] hover:bg-blue-100"
@@ -412,32 +675,47 @@ export function LibroPage() {
                           <ExternalLink size={14} /> Ver
                         </a>
                       ) : (
-                        <span className="text-slate-400">Sin archivo</span>
+                        <span className="text-slate-400">—</span>
                       )}
-                    </td>
-                    <td className="p-4 text-right font-black text-red-600">
-                      {formatCurrency(toMoneyNumber(gasto.monto))}
                     </td>
                     {canManage && (
                       <td className="p-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingGasto(gasto)}
-                            className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A]"
-                            aria-label="Editar gasto"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingGasto(gasto)}
-                            className="rounded-xl bg-red-100 p-2 text-red-600 hover:bg-red-200"
-                            aria-label="Eliminar gasto"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {movimiento.tipo === "GASTO" ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void loadGastoForAction(
+                                  movimiento.registro_id,
+                                  "edit",
+                                )
+                              }
+                              disabled={loadingGastoId === movimiento.registro_id}
+                              className="rounded-xl bg-[#255F7A] p-2 text-white hover:bg-[#17445A] disabled:opacity-50"
+                              aria-label="Editar gasto"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void loadGastoForAction(
+                                  movimiento.registro_id,
+                                  "delete",
+                                )
+                              }
+                              disabled={loadingGastoId === movimiento.registro_id}
+                              className="rounded-xl bg-red-100 p-2 text-red-600 hover:bg-red-200 disabled:opacity-50"
+                              aria-label="Eliminar gasto"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="block text-center text-xs text-slate-400">
+                            Se administra en Cobranza
+                          </span>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -446,14 +724,15 @@ export function LibroPage() {
               <tfoot className="border-t border-slate-200 bg-slate-50">
                 <tr>
                   <td
-                    colSpan={canManage ? 5 : 4}
+                    colSpan={7}
                     className="p-4 text-right font-black text-[#17445A]"
                   >
-                    Total de esta página
+                    Suma absoluta de esta página
                   </td>
-                  <td className="p-4 text-right font-black text-red-600">
-                    {formatCurrency(visibleTotal)}
+                  <td className="p-4 text-right font-black text-[#17445A]">
+                    {formatCurrency(pageTotal)}
                   </td>
+                  <td />
                   {canManage && <td />}
                 </tr>
               </tfoot>
@@ -468,7 +747,7 @@ export function LibroPage() {
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.max(current - 1, 1))}
-                disabled={!gastosResult.previous || gastosResult.isLoading}
+                disabled={!libroResult.previous || libroResult.isLoading}
                 className="rounded-xl border border-slate-300 p-2 text-slate-600 disabled:opacity-40"
                 aria-label="Página anterior"
               >
@@ -477,7 +756,7 @@ export function LibroPage() {
               <button
                 type="button"
                 onClick={() => setPage((current) => current + 1)}
-                disabled={!gastosResult.next || gastosResult.isLoading}
+                disabled={!libroResult.next || libroResult.isLoading}
                 className="rounded-xl border border-slate-300 p-2 text-slate-600 disabled:opacity-40"
                 aria-label="Página siguiente"
               >
@@ -491,6 +770,8 @@ export function LibroPage() {
       {canManage && isFormOpen && (
         <GastoFormModal
           categorias={categoriasResult.categorias}
+          proyectos={opcionesResult.proyectos}
+          cotizaciones={opcionesResult.cotizaciones}
           onClose={() => setIsFormOpen(false)}
           onSaved={() => {
             setIsFormOpen(false);
@@ -502,6 +783,8 @@ export function LibroPage() {
       {canManage && editingGasto && (
         <GastoFormModal
           categorias={categoriasResult.categorias}
+          proyectos={opcionesResult.proyectos}
+          cotizaciones={opcionesResult.cotizaciones}
           gasto={editingGasto}
           onClose={() => setEditingGasto(null)}
           onSaved={() => {

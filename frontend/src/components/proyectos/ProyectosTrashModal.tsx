@@ -165,7 +165,7 @@ export function ProyectosTrashModal({
                 <thead className="bg-[#E8F1F5] text-[#17445A]">
                   <tr>
                     <th className="p-3 text-left">Proyecto</th>
-                    <th className="p-3 text-left">Cotización</th>
+                    <th className="p-3 text-left">Cotizaciones</th>
                     <th className="p-3 text-left">Cliente</th>
                     <th className="p-3 text-left">Estado</th>
                     <th className="p-3 text-left">Registro</th>
@@ -182,7 +182,7 @@ export function ProyectosTrashModal({
                         {proyecto.nombre}
                       </td>
                       <td className="p-3 text-slate-600">
-                        {proyecto.cotizacion_codigo}
+                        {proyecto.cotizaciones_count}
                       </td>
                       <td className="p-3 text-slate-600">
                         {proyecto.cliente_nombre}

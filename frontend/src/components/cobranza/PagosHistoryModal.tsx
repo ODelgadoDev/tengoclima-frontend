@@ -168,7 +168,12 @@ export function PagosHistoryModal({
                           {metodoLabels[pago.metodo_pago]}
                         </td>
                         <td className="p-4 text-slate-500">
-                          {pago.referencia || "Sin referencia"}
+                          <p>{pago.referencia || "Sin referencia"}</p>
+                          {pago.factura_folio && (
+                            <p className="mt-1 text-xs font-bold text-blue-700">
+                              Factura: {pago.factura_folio}
+                            </p>
+                          )}
                         </td>
                         <td className="p-4 text-right font-black text-green-700">
                           {formatCurrency(toMoneyNumber(pago.monto))}

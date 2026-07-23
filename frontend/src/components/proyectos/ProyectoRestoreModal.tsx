@@ -43,7 +43,7 @@ export function ProyectoRestoreModal({
               Restaurar proyecto
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              La cotización vinculada volverá a estado convertida.
+              El proyecto y sus cotizaciones vinculadas volverán a estar disponibles.
             </p>
           </div>
           <button
@@ -60,7 +60,7 @@ export function ProyectoRestoreModal({
           <div className="rounded-xl bg-slate-50 p-4">
             <p className="font-black text-[#17445A]">{proyecto.nombre}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {proyecto.cotizacion_codigo} · {proyecto.cliente_nombre}
+              {proyecto.cotizaciones_count} cotización{proyecto.cotizaciones_count === 1 ? "" : "es"} · {proyecto.cliente_nombre}
             </p>
           </div>
 

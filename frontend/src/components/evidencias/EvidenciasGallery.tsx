@@ -24,11 +24,15 @@ import { EvidenciasTrashModal } from "./EvidenciasTrashModal";
 interface EvidenciasGalleryProps {
   cotizacionId: number;
   cotizacionCodigo: string;
+  title?: string;
+  description?: string;
 }
 
 export function EvidenciasGallery({
   cotizacionId,
   cotizacionCodigo,
+  title = "Evidencias del proyecto",
+  description,
 }: EvidenciasGalleryProps) {
   const { canManage } = usePermissions();
   const { evidencias, isLoading, errorMessage, refresh } =
@@ -66,10 +70,10 @@ export function EvidenciasGallery({
       <header className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-lg font-black text-[#17445A]">
-            Evidencias del proyecto
+            {title}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            Fotografías asociadas a la cotización {cotizacionCodigo}.
+            {description ?? `Fotografías asociadas a la cotización ${cotizacionCodigo}.`}
           </p>
         </div>
 

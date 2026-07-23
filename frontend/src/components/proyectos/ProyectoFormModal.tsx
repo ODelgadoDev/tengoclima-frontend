@@ -1,5 +1,11 @@
-import { CalendarDays, Save, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  Save,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { cotizacionesApi } from "../../api/cotizacionesApi";
 import { proyectosApi } from "../../api/proyectosApi";
 import { usuariosApi } from "../../api/usuariosApi";
@@ -14,6 +20,7 @@ import type {
 import { formatCurrency } from "../../utils/formatCurrency";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 import { ESTADOS_PROYECTO } from "../../utils/proyectoUtils";
+import { ClienteSelector } from "../cotizaciones/ClienteSelector";
 
 interface ProyectoFormModalProps {
   proyecto?: Proyecto | null;
@@ -22,7 +29,8 @@ interface ProyectoFormModalProps {
 }
 
 const EMPTY_FORM: ProyectoFormValues = {
-  cotizacion: null,
+  cliente: null,
+  cotizacionesIds: [],
   nombre: "",
   responsable: null,
   fechaInicio: "",
@@ -34,7 +42,8 @@ const EMPTY_FORM: ProyectoFormValues = {
 
 function proyectoToForm(proyecto: Proyecto): ProyectoFormValues {
   return {
-    cotizacion: proyecto.cotizacion,
+    cliente: proyecto.cliente,
+    cotizacionesIds: proyecto.cotizaciones.map((cotizacion) => cotizacion.id),
     nombre: proyecto.nombre,
     responsable: proyecto.responsable,
     fechaInicio: proyecto.fecha_inicio ?? "",
@@ -51,43 +60,32 @@ export function ProyectoFormModal({
   onSaved,
 }: ProyectoFormModalProps) {
   const isEditing = Boolean(proyecto);
-  const [form, setForm] = useState<ProyectoFormValues>(
+  const [form, setForm] = useState<ProyectoFormValues>(() =>
     proyecto ? proyectoToForm(proyecto) : EMPTY_FORM,
   );
-  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioResponsable[]>([]);
+  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [isLoadingCotizaciones, setIsLoadingCotizaciones] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [cotizacionesError, setCotizacionesError] = useState("");
 
   useEffect(() => {
     let isActive = true;
 
-    const loadOptions = async () => {
+    const loadUsuarios = async () => {
       try {
-        const [usuariosResponse, cotizacionesResponse] = await Promise.all([
-          usuariosApi.getUsuariosActivos(),
-          isEditing
-            ? Promise.resolve(null)
-            : cotizacionesApi.getCotizaciones({
-                estado: "AUTORIZADA",
-                page_size: 100,
-                ordering: "-fecha_creacion",
-              }),
-        ]);
-
-        if (!isActive) {
-          return;
+        const response = await usuariosApi.getUsuariosActivos();
+        if (isActive) {
+          setUsuarios(response);
         }
-
-        setUsuarios(usuariosResponse);
-        setCotizaciones(cotizacionesResponse?.results ?? []);
       } catch (error) {
         if (isActive) {
           setErrorMessage(
             getApiErrorMessage(
               error,
-              "No fue posible cargar las opciones del formulario.",
+              "No fue posible cargar los responsables.",
             ),
           );
         }
@@ -98,12 +96,77 @@ export function ProyectoFormModal({
       }
     };
 
-    void loadOptions();
+    void loadUsuarios();
 
     return () => {
       isActive = false;
     };
-  }, [isEditing]);
+  }, []);
+
+  useEffect(() => {
+    if (isEditing || !form.cliente) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadCotizaciones = async () => {
+      setIsLoadingCotizaciones(true);
+      setCotizacionesError("");
+
+      try {
+        const response = await cotizacionesApi.getCotizaciones({
+          page: 1,
+          page_size: 100,
+          cliente: form.cliente as number,
+          estado: "AUTORIZADA",
+          sin_proyecto: true,
+          ordering: "-fecha_creacion",
+        });
+
+        if (isActive) {
+          setCotizaciones(response.results);
+        }
+      } catch (error) {
+        if (isActive) {
+          setCotizaciones([]);
+          setCotizacionesError(
+            getApiErrorMessage(
+              error,
+              "No fue posible cargar las cotizaciones disponibles.",
+            ),
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingCotizaciones(false);
+        }
+      }
+    };
+
+    void loadCotizaciones();
+
+    return () => {
+      isActive = false;
+    };
+  }, [form.cliente, isEditing]);
+
+  const selectedCotizaciones = useMemo(
+    () =>
+      cotizaciones.filter((cotizacion) =>
+        form.cotizacionesIds.includes(cotizacion.id),
+      ),
+    [cotizaciones, form.cotizacionesIds],
+  );
+
+  const selectedTotal = useMemo(
+    () =>
+      selectedCotizaciones.reduce(
+        (sum, cotizacion) => sum + Number(cotizacion.total),
+        0,
+      ),
+    [selectedCotizaciones],
+  );
 
   const updateForm = <K extends keyof ProyectoFormValues>(
     field: K,
@@ -112,9 +175,28 @@ export function ProyectoFormModal({
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const handleClienteChange = (clienteId: number | null) => {
+    setCotizaciones([]);
+    setCotizacionesError("");
+    setForm((current) => ({
+      ...current,
+      cliente: clienteId,
+      cotizacionesIds: [],
+    }));
+  };
+
+  const toggleCotizacion = (cotizacionId: number) => {
+    setForm((current) => ({
+      ...current,
+      cotizacionesIds: current.cotizacionesIds.includes(cotizacionId)
+        ? current.cotizacionesIds.filter((id) => id !== cotizacionId)
+        : [...current.cotizacionesIds, cotizacionId],
+    }));
+  };
+
   const validate = (): string | null => {
-    if (!isEditing && !form.cotizacion) {
-      return "Selecciona una cotización autorizada.";
+    if (!form.cliente) {
+      return "Selecciona el cliente del proyecto.";
     }
 
     if (!form.nombre.trim()) {
@@ -154,6 +236,7 @@ export function ProyectoFormModal({
     try {
       if (proyecto) {
         const payload: ProyectoUpdatePayload = {
+          cliente: form.cliente as number,
           nombre: form.nombre.trim(),
           responsable: form.responsable,
           fecha_inicio: form.fechaInicio || null,
@@ -171,7 +254,7 @@ export function ProyectoFormModal({
       }
 
       const payload: ProyectoCreatePayload = {
-        cotizacion: form.cotizacion as number,
+        cliente: form.cliente as number,
         nombre: form.nombre.trim(),
         responsable: form.responsable,
         fecha_inicio: form.fechaInicio || null,
@@ -179,9 +262,16 @@ export function ProyectoFormModal({
         fecha_fin_real: form.fechaFinReal || null,
         estado: form.estado,
         notas: form.notas.trim() || null,
+        cotizaciones_ids: form.cotizacionesIds,
       };
       const created = await proyectosApi.createProyecto(payload);
-      onSaved(created, "Cotización convertida en proyecto correctamente.");
+      const quoteMessage =
+        form.cotizacionesIds.length === 0
+          ? "sin cotizaciones iniciales"
+          : `con ${form.cotizacionesIds.length} cotización${
+              form.cotizacionesIds.length === 1 ? "" : "es"
+            }`;
+      onSaved(created, `Proyecto creado ${quoteMessage}.`);
     } catch (error) {
       setErrorMessage(
         getApiErrorMessage(error, "No fue posible guardar el proyecto."),
@@ -191,18 +281,22 @@ export function ProyectoFormModal({
     }
   };
 
+  const clienteLocked = Boolean(
+    isEditing && proyecto && proyecto.cotizaciones_count > 0,
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
-      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5">
           <div>
             <h2 className="text-xl font-black text-[#17445A]">
-              {isEditing ? "Editar proyecto" : "Convertir cotización"}
+              {isEditing ? "Editar proyecto" : "Nuevo proyecto"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {isEditing
-                ? "Actualiza seguimiento, responsable, fechas y estado."
-                : "Selecciona una cotización autorizada para crear el proyecto."}
+                ? "Actualiza cliente, responsable, fechas y seguimiento."
+                : "Crea el proyecto y vincula cero, una o varias cotizaciones autorizadas."}
             </p>
           </div>
           <button
@@ -230,57 +324,114 @@ export function ProyectoFormModal({
             <>
               <section className="rounded-2xl border border-slate-200 p-5">
                 <h3 className="font-black text-[#17445A]">
-                  Cotización de origen
+                  Cliente del proyecto
                 </h3>
-
-                {proyecto ? (
-                  <div className="mt-4 rounded-xl bg-[#E8F1F5] p-4">
-                    <p className="font-black text-[#17445A]">
-                      {proyecto.cotizacion_codigo}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {proyecto.cliente_nombre}
-                      {proyecto.cliente_empresa
-                        ? ` · ${proyecto.cliente_empresa}`
-                        : ""}
-                    </p>
-                    <p className="mt-2 font-black text-[#255F7A]">
-                      {formatCurrency(Number(proyecto.total_cotizacion))}
-                    </p>
-                  </div>
-                ) : (
-                  <label className="mt-4 block text-sm font-bold text-slate-700">
-                    Cotización autorizada
-                    <select
-                      value={form.cotizacion ?? ""}
-                      onChange={(event) =>
-                        updateForm(
-                          "cotizacion",
-                          event.target.value
-                            ? Number(event.target.value)
-                            : null,
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-                    >
-                      <option value="">Selecciona una cotización</option>
-                      {cotizaciones.map((cotizacion) => (
-                        <option key={cotizacion.id} value={cotizacion.id}>
-                          {cotizacion.codigo} · {cotizacion.cliente_nombre} · {" "}
-                          {formatCurrency(Number(cotizacion.total))}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                {!isEditing && cotizaciones.length === 0 && (
+                <p className="mt-1 text-sm text-slate-500">
+                  Todas las cotizaciones vinculadas deberán pertenecer a este cliente.
+                </p>
+                <div className="mt-4">
+                  <ClienteSelector
+                    value={form.cliente}
+                    onChange={handleClienteChange}
+                    disabled={clienteLocked}
+                  />
+                </div>
+                {clienteLocked && (
                   <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-                    No existen cotizaciones autorizadas disponibles. Autoriza
-                    una cotización antes de crear el proyecto.
+                    Para cambiar el cliente, retira primero todas las cotizaciones desde el detalle del proyecto.
                   </p>
                 )}
               </section>
+
+              {!isEditing && (
+                <section className="rounded-2xl border border-slate-200 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="font-black text-[#17445A]">
+                        Cotizaciones iniciales
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Es opcional. Después podrás agregar o retirar cotizaciones desde el proyecto.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#E8F1F5] px-3 py-1 text-sm font-black text-[#255F7A]">
+                      Seleccionadas: {form.cotizacionesIds.length}
+                    </span>
+                  </div>
+
+                  {!form.cliente ? (
+                    <p className="mt-4 rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                      Selecciona primero un cliente para consultar sus cotizaciones autorizadas disponibles.
+                    </p>
+                  ) : isLoadingCotizaciones ? (
+                    <p className="mt-4 rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                      Cargando cotizaciones disponibles...
+                    </p>
+                  ) : cotizacionesError ? (
+                    <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                      {cotizacionesError}
+                    </p>
+                  ) : cotizaciones.length === 0 ? (
+                    <p className="mt-4 rounded-xl bg-amber-50 px-4 py-4 text-sm font-bold text-amber-800">
+                      Este cliente no tiene cotizaciones autorizadas libres. Puedes crear el proyecto sin cotizaciones y agregarlas más adelante.
+                    </p>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {cotizaciones.map((cotizacion) => {
+                        const selected = form.cotizacionesIds.includes(
+                          cotizacion.id,
+                        );
+
+                        return (
+                          <button
+                            key={cotizacion.id}
+                            type="button"
+                            onClick={() => toggleCotizacion(cotizacion.id)}
+                            className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${
+                              selected
+                                ? "border-[#F5822A] bg-orange-50"
+                                : "border-slate-200 hover:border-[#255F7A] hover:bg-[#E8F1F5]"
+                            }`}
+                          >
+                            <span
+                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-[#F5822A] bg-[#F5822A] text-white"
+                                  : "border-slate-300 text-transparent"
+                              }`}
+                            >
+                              <CheckCircle2 size={16} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-black text-[#17445A]">
+                                {cotizacion.codigo}
+                              </span>
+                              <span className="mt-1 line-clamp-2 block text-sm text-slate-600">
+                                {cotizacion.descripcion}
+                              </span>
+                              <span className="mt-2 block font-black text-[#255F7A]">
+                                {formatCurrency(Number(cotizacion.total))}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {form.cotizacionesIds.length > 0 && (
+                    <div className="mt-4 flex items-center justify-between rounded-xl bg-[#17445A] px-4 py-3 text-white">
+                      <span className="flex items-center gap-2 text-sm font-bold text-white/75">
+                        <FileText size={17} />
+                        Total inicial seleccionado
+                      </span>
+                      <strong className="text-lg">
+                        {formatCurrency(selectedTotal)}
+                      </strong>
+                    </div>
+                  )}
+                </section>
+              )}
 
               <section className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 p-5 md:grid-cols-2">
                 <label className="text-sm font-bold text-slate-700 md:col-span-2">
@@ -290,7 +441,7 @@ export function ProyectoFormModal({
                     onChange={(event) =>
                       updateForm("nombre", event.target.value)
                     }
-                    placeholder="Ej. Instalación de minisplit en Taller Pérez"
+                    placeholder="Ej. Remodelación Hospital Central"
                     className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                   />
                 </label>
@@ -364,7 +515,7 @@ export function ProyectoFormModal({
                       updateForm("notas", event.target.value)
                     }
                     rows={4}
-                    placeholder="Observaciones, acuerdos, avances o información importante."
+                    placeholder="Alcance, observaciones y acuerdos del proyecto."
                     className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
                   />
                 </label>
@@ -386,7 +537,7 @@ export function ProyectoFormModal({
             type="button"
             onClick={() => void handleSubmit()}
             disabled={isSaving || isLoadingOptions}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white transition hover:bg-[#FF9A3D] disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white transition hover:bg-[#d96f1d] disabled:opacity-60"
           >
             <Save size={18} />
             {isSaving
@@ -410,16 +561,19 @@ interface DateFieldProps {
 function DateField({ label, value, onChange }: DateFieldProps) {
   return (
     <label className="text-sm font-bold text-slate-700">
-      <span className="flex items-center gap-2">
-        <CalendarDays size={16} />
-        {label}
+      {label}
+      <span className="relative mt-2 block">
+        <CalendarDays
+          size={18}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          type="date"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#F5822A]"
+        />
       </span>
-      <input
-        type="date"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5822A]"
-      />
     </label>
   );
 }

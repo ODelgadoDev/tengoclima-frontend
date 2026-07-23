@@ -2,8 +2,10 @@ import {
   Calculator,
   FileText,
   Info,
+  Paperclip,
   RefreshCcw,
   Save,
+  Trash2,
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 
@@ -11,10 +13,12 @@ import type {
   CotizacionFormValues,
   TipoCotizacion,
 } from "../../types/cotizacion";
+import type { ArchivoPendienteCotizacion } from "../../types/evidencia";
 import {
   parseMoney,
   TIPOS_COTIZACION,
 } from "../../utils/cotizacionUtils";
+import { validateArchivoTrabajo } from "../../utils/evidenciaUtils";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { ClienteSelector } from "./ClienteSelector";
 import { ConceptosEditor } from "./ConceptosEditor";
@@ -24,7 +28,11 @@ interface CotizacionFormProps {
   initialValues: CotizacionFormValues;
   isSubmitting: boolean;
   apiErrorMessage: string;
-  onSubmit: (values: CotizacionFormValues) => Promise<void>;
+  onSubmit: (
+    values: CotizacionFormValues,
+    referencias?: ArchivoPendienteCotizacion[],
+  ) => Promise<void>;
+  lockClient?: boolean;
 }
 
 export function CotizacionForm({
@@ -33,9 +41,13 @@ export function CotizacionForm({
   isSubmitting,
   apiErrorMessage,
   onSubmit,
+  lockClient = false,
 }: CotizacionFormProps) {
   const [form, setForm] = useState<CotizacionFormValues>(initialValues);
   const [validationMessage, setValidationMessage] = useState("");
+  const [referenciasPendientes, setReferenciasPendientes] = useState<
+    ArchivoPendienteCotizacion[]
+  >([]);
 
   const subtotal = useMemo(
     () =>
@@ -110,11 +122,15 @@ export function CotizacionForm({
     }
 
     setValidationMessage("");
-    await onSubmit(form);
+    await onSubmit(
+      form,
+      mode === "create" ? referenciasPendientes : undefined,
+    );
   };
 
   const resetForm = () => {
     setForm(initialValues);
+    setReferenciasPendientes([]);
     setValidationMessage("");
   };
 
@@ -196,9 +212,14 @@ export function CotizacionForm({
               <ClienteSelector
                 value={form.cliente}
                 onChange={(cliente) => updateField("cliente", cliente)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || lockClient}
               />
             </div>
+            {lockClient && (
+              <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                El cliente no puede cambiarse mientras la cotización esté vinculada a un proyecto.
+              </p>
+            )}
 
             <div className="mt-5">
               <label
@@ -295,6 +316,110 @@ export function CotizacionForm({
               />
             </label>
           </article>
+
+          {mode === "create" && (
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
+                <div className="rounded-xl bg-[#E8F1F5] p-3 text-[#255F7A]">
+                  <Paperclip size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-[#17445A]">
+                    Referencias iniciales
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Fotografías, PDF o planos recibidos antes de cotizar. Es opcional.
+                  </p>
+                </div>
+              </div>
+
+              <label className="mt-5 block rounded-xl border-2 border-dashed border-slate-200 p-5 text-center transition hover:border-[#255F7A]">
+                <Paperclip className="mx-auto text-[#255F7A]" size={30} />
+                <input
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.dwg,.dxf,.dwt"
+                  disabled={isSubmitting}
+                  onChange={(event) => {
+                    const selectedFiles = Array.from(event.target.files || []);
+                    const validFiles: ArchivoPendienteCotizacion[] = [];
+
+                    for (const archivo of selectedFiles) {
+                      const error = validateArchivoTrabajo(archivo);
+                      if (error) {
+                        setValidationMessage(`${archivo.name}: ${error}`);
+                        event.target.value = "";
+                        return;
+                      }
+
+                      validFiles.push({
+                        id: crypto.randomUUID(),
+                        archivo,
+                        descripcion: "",
+                      });
+                    }
+
+                    setReferenciasPendientes((current) => [
+                      ...current,
+                      ...validFiles,
+                    ]);
+                    setValidationMessage("");
+                    event.target.value = "";
+                  }}
+                  className="mt-3 block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-[#E8F1F5] file:px-4 file:py-2 file:font-bold file:text-[#255F7A]"
+                />
+                <p className="mt-3 text-xs text-slate-400">
+                  JPG, PNG, WEBP, PDF, DWG, DXF o DWT. Máximo 50 MB por archivo.
+                </p>
+              </label>
+
+              {referenciasPendientes.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {referenciasPendientes.map((referencia) => (
+                    <div
+                      key={referencia.id}
+                      className="rounded-xl border border-slate-200 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 break-all font-black text-slate-700">
+                          {referencia.archivo.name}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReferenciasPendientes((current) =>
+                              current.filter((item) => item.id !== referencia.id),
+                            )
+                          }
+                          disabled={isSubmitting}
+                          className="shrink-0 rounded-lg bg-red-50 p-2 text-red-600 transition hover:bg-red-100"
+                          aria-label={`Quitar ${referencia.archivo.name}`}
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+                      <input
+                        value={referencia.descripcion}
+                        onChange={(event) =>
+                          setReferenciasPendientes((current) =>
+                            current.map((item) =>
+                              item.id === referencia.id
+                                ? { ...item, descripcion: event.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                        maxLength={255}
+                        disabled={isSubmitting}
+                        placeholder="Descripción opcional de la referencia"
+                        className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#F5822A]"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          )}
 
           <ConceptosEditor
             conceptos={form.conceptos}

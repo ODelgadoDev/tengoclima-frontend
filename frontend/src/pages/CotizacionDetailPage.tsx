@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Building2,
   Clock3,
+  FolderKanban,
   Pencil,
   Trash2,
   UserRound,
@@ -18,7 +19,10 @@ import {
 import { cotizacionesApi } from "../api/cotizacionesApi";
 import { usePermissions } from "../auth/usePermissions";
 import { CotizacionDeleteModal } from "../components/cotizaciones/CotizacionDeleteModal";
+import { ArchivosTrabajoPanel } from "../components/evidencias/ArchivosTrabajoPanel";
 import { CotizacionEstadoActions } from "../components/cotizaciones/CotizacionEstadoActions";
+import { FacturasPanel } from "../components/cobranza/FacturasPanel";
+import { FacturacionStatusBadge } from "../components/cobranza/FacturacionStatusBadge";
 import type { CotizacionDetalle } from "../types/cotizacion";
 import {
   ESTADO_COBRANZA_LABELS,
@@ -171,14 +175,16 @@ export function CotizacionDetailPage() {
               <Pencil size={18} />
               Editar
             </Link>
-            <button
-              type="button"
-              onClick={() => setIsDeleteOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
-            >
-              <Trash2 size={18} />
-              Eliminar
-            </button>
+            {cotizacion.proyecto === null && (
+              <button
+                type="button"
+                onClick={() => setIsDeleteOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
+              >
+                <Trash2 size={18} />
+                Eliminar
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -211,6 +217,28 @@ export function CotizacionDetailPage() {
         </div>
       )}
 
+      {cotizacion.proyecto !== null && (
+        <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <FolderKanban className="mt-0.5 shrink-0 text-[#255F7A]" size={21} />
+            <div>
+              <p className="font-black text-[#17445A]">
+                Vinculada al proyecto {cotizacion.proyecto_nombre}
+              </p>
+              <p className="mt-1 text-sm text-blue-800">
+                Para cancelar, eliminar o cambiar el cliente, retírala primero desde el proyecto.
+              </p>
+            </div>
+          </div>
+          <Link
+            to={`/proyectos/${cotizacion.proyecto}`}
+            className="shrink-0 rounded-xl bg-[#255F7A] px-4 py-2 text-center text-sm font-bold text-white transition hover:bg-[#17445A]"
+          >
+            Abrir proyecto
+          </Link>
+        </div>
+      )}
+
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -228,6 +256,7 @@ export function CotizacionDetailPage() {
             >
               {ESTADO_COBRANZA_LABELS[cotizacion.estado_cobranza]}
             </span>
+            <FacturacionStatusBadge estado={cotizacion.estado_facturacion} />
           </div>
 
           <h3 className="mt-5 text-lg font-black text-[#17445A]">
@@ -288,6 +317,18 @@ export function CotizacionDetailPage() {
                   {formatCurrency(Number(cotizacion.total))}
                 </dd>
               </div>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-white/70">Facturado</dt>
+              <dd className="font-black">
+                {formatCurrency(Number(cotizacion.total_facturado))}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-white/70">Por facturar</dt>
+              <dd className="font-black">
+                {formatCurrency(Number(cotizacion.saldo_por_facturar))}
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-white/70">Pagado</dt>
@@ -361,6 +402,28 @@ export function CotizacionDetailPage() {
           Creada: {formatDate(cotizacion.fecha_creacion)} · Última
           actualización: {formatDate(cotizacion.fecha_actualizacion)}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <FacturasPanel
+          cotizacionId={cotizacion.id}
+          cotizaciones={[cotizacion]}
+          title="Facturas de la cotización"
+          description="Carga uno o varios PDF, controla facturación parcial y registra cuándo se pagan."
+          onChanged={() => {
+            setIsLoading(true);
+            setRefreshKey((current) => current + 1);
+          }}
+        />
+      </section>
+
+      <section className="mt-6">
+        <ArchivosTrabajoPanel
+          cotizacionId={cotizacion.id}
+          origenNombre={`Cotización ${cotizacion.codigo}`}
+          title="Referencias, evidencias y archivos técnicos"
+          description="Consulta material previo, evidencia del trabajo, PDF y archivos de AutoCAD asociados a esta cotización."
+        />
       </section>
 
       {canManage && isDeleteOpen && (

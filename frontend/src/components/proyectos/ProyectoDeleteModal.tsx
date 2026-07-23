@@ -43,8 +43,7 @@ export function ProyectoDeleteModal({
               Eliminar proyecto
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              El registro se enviará a la papelera y su cotización volverá a
-              estado autorizada.
+              El registro se enviará a la papelera. Las cotizaciones vinculadas permanecerán asociadas para conservar el historial.
             </p>
           </div>
           <button
@@ -61,7 +60,7 @@ export function ProyectoDeleteModal({
           <div className="rounded-xl bg-slate-50 p-4">
             <p className="font-black text-[#17445A]">{proyecto.nombre}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {proyecto.cotizacion_codigo} · {proyecto.cliente_nombre}
+              {proyecto.cotizaciones_count} cotización{proyecto.cotizaciones_count === 1 ? "" : "es"} · {proyecto.cliente_nombre}
             </p>
           </div>
 

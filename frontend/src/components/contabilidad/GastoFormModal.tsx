@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { Paperclip, ReceiptText, X } from "lucide-react";
+import { Calculator, Paperclip, ReceiptText, X } from "lucide-react";
 import { contabilidadApi } from "../../api/contabilidadApi";
 import type {
   CategoriaGasto,
@@ -7,10 +7,14 @@ import type {
   GastoFormValues,
   MetodoPagoGasto,
 } from "../../types/contabilidad";
+import type { Cotizacion } from "../../types/cotizacion";
+import type { Proyecto } from "../../types/proyecto";
 import {
   getComprobanteUrl,
   getTodayInputDate,
+  toMoneyNumber,
 } from "../../utils/contabilidadUtils";
+import { formatCurrency } from "../../utils/formatCurrency";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 
 const metodos: Array<{ value: MetodoPagoGasto; label: string }> = [
@@ -23,6 +27,8 @@ const metodos: Array<{ value: MetodoPagoGasto; label: string }> = [
 
 type Props = {
   categorias: CategoriaGasto[];
+  proyectos: Proyecto[];
+  cotizaciones: Cotizacion[];
   gasto?: Gasto;
   onClose: () => void;
   onSaved: () => void;
@@ -30,6 +36,8 @@ type Props = {
 
 export function GastoFormModal({
   categorias,
+  proyectos,
+  cotizaciones,
   gasto,
   onClose,
   onSaved,
@@ -46,9 +54,16 @@ export function GastoFormModal({
   const [categoriaId, setCategoriaId] = useState(
     String(gasto?.categoria ?? availableCategories[0]?.id ?? ""),
   );
+  const [proyectoId, setProyectoId] = useState(
+    String(gasto?.proyecto ?? ""),
+  );
+  const [cotizacionId, setCotizacionId] = useState(
+    String(gasto?.cotizacion ?? ""),
+  );
   const [concepto, setConcepto] = useState(gasto?.concepto ?? "");
   const [proveedor, setProveedor] = useState(gasto?.proveedor ?? "");
   const [monto, setMonto] = useState(gasto?.monto ?? "");
+  const [iva, setIva] = useState(gasto?.iva ?? "");
   const [metodoPago, setMetodoPago] = useState<MetodoPagoGasto>(
     gasto?.metodo_pago ?? "EFECTIVO",
   );
@@ -59,6 +74,45 @@ export function GastoFormModal({
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const cotizacionesDisponibles = useMemo(() => {
+    if (!proyectoId) return cotizaciones;
+    const selectedProjectId = Number(proyectoId);
+    return cotizaciones.filter(
+      (cotizacion) => cotizacion.proyecto === selectedProjectId,
+    );
+  }, [cotizaciones, proyectoId]);
+
+  const subtotalCalculado = Math.max(
+    toMoneyNumber(monto) - toMoneyNumber(iva),
+    0,
+  );
+
+  const handleProyectoChange = (value: string) => {
+    setProyectoId(value);
+
+    if (!cotizacionId) return;
+    const selectedQuote = cotizaciones.find(
+      (cotizacion) => cotizacion.id === Number(cotizacionId),
+    );
+    const nextProjectId = value ? Number(value) : null;
+
+    if (selectedQuote?.proyecto !== nextProjectId) {
+      setCotizacionId("");
+    }
+  };
+
+  const handleCotizacionChange = (value: string) => {
+    setCotizacionId(value);
+    if (!value) return;
+
+    const selectedQuote = cotizaciones.find(
+      (cotizacion) => cotizacion.id === Number(value),
+    );
+    setProyectoId(
+      selectedQuote?.proyecto ? String(selectedQuote.proyecto) : "",
+    );
+  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -80,6 +134,7 @@ export function GastoFormModal({
 
     const categoria = Number(categoriaId);
     const amount = Number(monto);
+    const tax = iva.trim() ? Number(iva) : 0;
 
     if (!categoria) {
       setErrorMessage("Selecciona una categoría activa.");
@@ -96,6 +151,16 @@ export function GastoFormModal({
       return;
     }
 
+    if (!Number.isFinite(tax) || tax < 0) {
+      setErrorMessage("El IVA no puede ser negativo.");
+      return;
+    }
+
+    if (tax > amount) {
+      setErrorMessage("El IVA no puede ser mayor al monto total.");
+      return;
+    }
+
     if (!fechaGasto || fechaGasto > getTodayInputDate()) {
       setErrorMessage("La fecha del gasto no puede ser futura.");
       return;
@@ -103,9 +168,12 @@ export function GastoFormModal({
 
     const values: GastoFormValues = {
       categoria,
+      proyecto: proyectoId ? Number(proyectoId) : null,
+      cotizacion: cotizacionId ? Number(cotizacionId) : null,
       concepto,
       proveedor,
       monto: amount.toFixed(2),
+      iva: tax.toFixed(2),
       metodo_pago: metodoPago,
       notas,
       fecha_gasto: fechaGasto,
@@ -131,14 +199,14 @@ export function GastoFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-slate-200 p-6">
           <div>
             <h3 className="text-xl font-black text-[#17445A]">
               {isEditing ? "Editar gasto" : "Registrar gasto"}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Captura el egreso y adjunta el comprobante cuando exista.
+              Relaciona el egreso con un proyecto o cotización cuando aplique.
             </p>
           </div>
           <button
@@ -199,6 +267,48 @@ export function GastoFormModal({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-bold text-[#17445A]">
+                Proyecto relacionado
+              </label>
+              <select
+                value={proyectoId}
+                onChange={(event) => handleProyectoChange(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+              >
+                <option value="">Sin proyecto</option>
+                {proyectos.map((proyecto) => (
+                  <option key={proyecto.id} value={proyecto.id}>
+                    {proyecto.nombre} · {proyecto.cliente_nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-bold text-[#17445A]">
+                Cotización relacionada
+              </label>
+              <select
+                value={cotizacionId}
+                onChange={(event) => handleCotizacionChange(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+              >
+                <option value="">Sin cotización</option>
+                {cotizacionesDisponibles.map((cotizacion) => (
+                  <option key={cotizacion.id} value={cotizacion.id}>
+                    {cotizacion.codigo} · {cotizacion.cliente_nombre}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                Al seleccionar una cotización se asigna automáticamente su
+                proyecto, cuando exista.
+              </p>
+            </div>
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-bold text-[#17445A]">
               Concepto
@@ -208,12 +318,12 @@ export function GastoFormModal({
               maxLength={255}
               value={concepto}
               onChange={(event) => setConcepto(event.target.value)}
-              placeholder="Ej. Carga de combustible"
+              placeholder="Ej. Compra de material para instalación"
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-bold text-[#17445A]">
                 Proveedor
@@ -230,7 +340,7 @@ export function GastoFormModal({
 
             <div>
               <label className="mb-2 block text-sm font-bold text-[#17445A]">
-                Monto
+                Monto total
               </label>
               <input
                 type="number"
@@ -242,6 +352,28 @@ export function GastoFormModal({
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
               />
             </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-bold text-[#17445A]">
+                IVA incluido
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={iva}
+                onChange={(event) => setIva(event.target.value)}
+                placeholder="0.00"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#F5822A]"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-[#E8F1F5] px-4 py-3">
+            <Calculator size={19} className="text-[#255F7A]" />
+            <p className="text-sm font-semibold text-[#17445A]">
+              Subtotal sin IVA: {formatCurrency(subtotalCalculado)}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

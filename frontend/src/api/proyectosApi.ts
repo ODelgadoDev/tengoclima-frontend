@@ -1,5 +1,6 @@
 import type {
   Proyecto,
+  ProyectoCotizacionActionResponse,
   ProyectoCreatePayload,
   ProyectoDetalle,
   ProyectosPaginatedResponse,
@@ -18,7 +19,8 @@ function normalizeParams(
     search: params.search?.trim() || undefined,
     estado: params.estado || undefined,
     responsable: params.responsable,
-    cotizacion: params.cotizacion,
+    cliente: params.cliente,
+    cotizaciones: params.cotizaciones,
     ordering: params.ordering?.trim() || undefined,
   };
 }
@@ -91,6 +93,32 @@ export const proyectosApi = {
     const response = await apiClient.post<RestoreProyectoResponse>(
       `/proyectos/proyectos/${id}/restaurar/`,
     );
+
+    return response.data;
+  },
+
+  async agregarCotizacion(
+    proyectoId: number,
+    cotizacionId: number,
+  ): Promise<ProyectoCotizacionActionResponse> {
+    const response =
+      await apiClient.post<ProyectoCotizacionActionResponse>(
+        `/proyectos/proyectos/${proyectoId}/agregar-cotizacion/`,
+        { cotizacion: cotizacionId },
+      );
+
+    return response.data;
+  },
+
+  async retirarCotizacion(
+    proyectoId: number,
+    cotizacionId: number,
+  ): Promise<ProyectoCotizacionActionResponse> {
+    const response =
+      await apiClient.post<ProyectoCotizacionActionResponse>(
+        `/proyectos/proyectos/${proyectoId}/retirar-cotizacion/`,
+        { cotizacion: cotizacionId },
+      );
 
     return response.data;
   },

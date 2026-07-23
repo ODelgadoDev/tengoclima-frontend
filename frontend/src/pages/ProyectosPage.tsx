@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  FileText,
   MapPin,
   Pencil,
   Plus,
@@ -27,6 +28,10 @@ import type {
   Proyecto,
   UsuarioResponsable,
 } from "../types/proyecto";
+import {
+  ESTADO_COBRANZA_LABELS,
+  ESTADO_COBRANZA_STYLES,
+} from "../utils/cotizacionUtils";
 import { formatCurrency } from "../utils/formatCurrency";
 import {
   ESTADOS_PROYECTO,
@@ -123,8 +128,7 @@ export function ProyectosPage() {
         <div>
           <h2 className="text-2xl font-black text-[#17445A]">Proyectos</h2>
           <p className="text-slate-500">
-            Seguimiento real de cotizaciones autorizadas convertidas en
-            proyectos.
+            Cada proyecto puede reunir varias cotizaciones del mismo cliente.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -154,7 +158,7 @@ export function ProyectosPage() {
               className="flex items-center justify-center gap-2 rounded-xl bg-[#F5822A] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#FF9A3D]"
             >
               <Plus size={19} />
-              Convertir cotización
+              Nuevo proyecto
             </button>
           )}
         </div>
@@ -251,8 +255,7 @@ export function ProyectosPage() {
             No se encontraron proyectos
           </h3>
           <p className="mt-2 text-slate-500">
-            Autoriza una cotización y usa “Convertir cotización” para crear el
-            primer proyecto.
+            Crea un proyecto manual o inicia con una o varias cotizaciones autorizadas.
           </p>
         </section>
       )}
@@ -267,10 +270,20 @@ export function ProyectosPage() {
               <div className="border-b border-slate-100 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-black text-[#F5822A]">
-                      {proyecto.cotizacion_codigo}
-                    </p>
-                    <h3 className="mt-1 text-xl font-black text-[#17445A]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-[#F5822A]">
+                        {proyecto.cotizaciones_count} cotización
+                        {proyecto.cotizaciones_count === 1 ? "" : "es"}
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-black ${
+                          ESTADO_COBRANZA_STYLES[proyecto.estado_cobranza]
+                        }`}
+                      >
+                        {ESTADO_COBRANZA_LABELS[proyecto.estado_cobranza]}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 text-xl font-black text-[#17445A]">
                       {proyecto.nombre}
                     </h3>
                     <p className="mt-1 text-sm text-slate-500">
@@ -304,13 +317,39 @@ export function ProyectosPage() {
                 />
               </div>
 
-              <div className="mx-5 rounded-xl bg-[#E8F1F5] p-4">
-                <p className="text-xs font-black uppercase tracking-wide text-[#255F7A]">
-                  Total de cotización
-                </p>
-                <p className="mt-1 text-xl font-black text-[#17445A]">
-                  {formatCurrency(Number(proyecto.total_cotizacion))}
-                </p>
+              {proyecto.cotizaciones_count > 0 && (
+                <div className="mx-5 flex flex-wrap gap-2">
+                  {proyecto.cotizaciones.slice(0, 3).map((cotizacion) => (
+                    <span
+                      key={cotizacion.id}
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600"
+                    >
+                      <FileText size={13} />
+                      {cotizacion.codigo}
+                    </span>
+                  ))}
+                  {proyecto.cotizaciones_count > 3 && (
+                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                      +{proyecto.cotizaciones_count - 3} más
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="mx-5 mt-4 grid grid-cols-1 gap-3 rounded-xl bg-[#E8F1F5] p-4 sm:grid-cols-3">
+                <FinancialMini
+                  label="Total"
+                  value={formatCurrency(Number(proyecto.total_cotizaciones))}
+                />
+                <FinancialMini
+                  label="Pagado"
+                  value={formatCurrency(Number(proyecto.total_pagado))}
+                />
+                <FinancialMini
+                  label="Saldo"
+                  value={formatCurrency(Number(proyecto.saldo_pendiente))}
+                  accent
+                />
               </div>
 
               <div className="flex flex-col gap-2 p-5 sm:flex-row sm:justify-end">
@@ -441,6 +480,29 @@ function InfoLine({ icon, label, value }: InfoLineProps) {
           {value}
         </p>
       </div>
+    </div>
+  );
+}
+
+interface FinancialMiniProps {
+  label: string;
+  value: string;
+  accent?: boolean;
+}
+
+function FinancialMini({ label, value, accent = false }: FinancialMiniProps) {
+  return (
+    <div>
+      <p className="text-xs font-black uppercase tracking-wide text-[#255F7A]">
+        {label}
+      </p>
+      <p
+        className={`mt-1 font-black ${
+          accent ? "text-[#F5822A]" : "text-[#17445A]"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type {
-  Gasto,
+  LibroDownload,
   MetodoPagoGasto,
+  TipoMovimientoLibro,
 } from "../types/contabilidad";
 
 const metodoLabels: Record<MetodoPagoGasto, string> = {
@@ -11,8 +12,17 @@ const metodoLabels: Record<MetodoPagoGasto, string> = {
   OTRO: "Otro",
 };
 
+const tipoLabels: Record<TipoMovimientoLibro, string> = {
+  INGRESO: "Ingreso",
+  GASTO: "Gasto",
+};
+
 export function getMetodoPagoLabel(metodo: MetodoPagoGasto): string {
   return metodoLabels[metodo];
+}
+
+export function getTipoMovimientoLabel(tipo: TipoMovimientoLibro): string {
+  return tipoLabels[tipo];
 }
 
 export function toMoneyNumber(value: string | number): number {
@@ -35,6 +45,11 @@ export function getTodayInputDate(): string {
     .slice(0, 10);
 }
 
+export function getFirstDayOfCurrentMonth(): string {
+  const today = getTodayInputDate();
+  return `${today.slice(0, 7)}-01`;
+}
+
 export function getComprobanteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
 
@@ -49,45 +64,11 @@ export function getComprobanteUrl(path: string): string {
   }
 }
 
-function escapeCsv(value: string | number | null): string {
-  const text = value === null ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-export function downloadGastosCsv(gastos: Gasto[]): void {
-  const headers = [
-    "Fecha",
-    "Categoría",
-    "Concepto",
-    "Proveedor",
-    "Método de pago",
-    "Monto",
-    "Comprobante",
-    "Notas",
-  ];
-
-  const rows = gastos.map((gasto) => [
-    gasto.fecha_gasto,
-    gasto.categoria_nombre ?? "Sin categoría",
-    gasto.concepto,
-    gasto.proveedor ?? "",
-    getMetodoPagoLabel(gasto.metodo_pago),
-    gasto.monto,
-    gasto.comprobante ?? "",
-    gasto.notas ?? "",
-  ]);
-
-  const content = [headers, ...rows]
-    .map((row) => row.map(escapeCsv).join(","))
-    .join("\r\n");
-
-  const blob = new Blob(["\uFEFF", content], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
+export function downloadLibroFile(download: LibroDownload): void {
+  const url = URL.createObjectURL(download.blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `gastos-${getTodayInputDate()}.csv`;
+  anchor.download = download.filename;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

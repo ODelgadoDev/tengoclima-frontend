@@ -15,6 +15,7 @@ export type UnidadConcepto =
   | "LOTE";
 
 export type EstadoCobranza = "PENDIENTE" | "PARCIAL" | "PAGADO";
+export type EstadoFacturacion = "SIN_FACTURA" | "FACTURADA_PARCIAL" | "FACTURADA";
 
 export interface ConceptoCatalogo {
   id: number;
@@ -46,6 +47,9 @@ export interface Cotizacion {
   cliente: number;
   cliente_nombre: string;
   cliente_empresa: string;
+  proyecto: number | null;
+  proyecto_nombre: string | null;
+  proyecto_eliminado: boolean | null;
   descripcion: string;
   tipo: TipoCotizacion;
   estimado_tiempo: string | null;
@@ -55,6 +59,10 @@ export interface Cotizacion {
   total_pagado: string;
   saldo_pendiente: string;
   estado_cobranza: EstadoCobranza;
+  facturas_count: number;
+  total_facturado: string;
+  saldo_por_facturar: string;
+  estado_facturacion: EstadoFacturacion;
   estado: EstadoCotizacion;
   fecha_creacion: string;
   fecha_actualizacion: string;
@@ -117,6 +125,8 @@ export interface CotizacionesQueryParams {
   estado?: EstadoCotizacion;
   tipo?: TipoCotizacion;
   cliente?: number;
+  proyecto?: number;
+  sin_proyecto?: boolean;
   ordering?: string;
 }
 

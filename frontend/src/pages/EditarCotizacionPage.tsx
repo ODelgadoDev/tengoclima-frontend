@@ -128,6 +128,7 @@ export function EditarCotizacionPage() {
       isSubmitting={isSubmitting}
       apiErrorMessage={errorMessage}
       onSubmit={handleSubmit}
+      lockClient={cotizacion.proyecto !== null}
     />
   );
 }

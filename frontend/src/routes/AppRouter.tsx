@@ -16,6 +16,7 @@ import { InitialPasswordChangePage } from "../pages/InitialPasswordChangePage";
 import { LibroPage } from "../pages/LibroPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NuevaCotizacionPage } from "../pages/NuevaCotizacionPage";
+import { NotificationsPage } from "../pages/NotificationsPage";
 import { PagadosPage } from "../pages/PagadosPage";
 import { PendientesPage } from "../pages/PendientesPage";
 import { ProfilePage } from "../pages/ProfilePage";
@@ -44,6 +45,7 @@ export function AppRouter() {
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/perfil" element={<ProfilePage />} />
+              <Route path="/notificaciones" element={<NotificationsPage />} />
               <Route path="/clientes" element={<ClientesPage />} />
               <Route path="/pendientes" element={<PendientesPage />} />
               <Route path="/cotizaciones" element={<CotizacionesPage />} />

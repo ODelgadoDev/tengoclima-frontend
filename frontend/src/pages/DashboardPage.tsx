@@ -4,6 +4,7 @@ import {
   FolderKanban,
   ReceiptText,
   RefreshCw,
+  BadgeDollarSign,
   WalletCards,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -148,7 +149,7 @@ export function DashboardPage() {
             </section>
           )}
 
-          <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-4">
+          <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-3">
             {resumenGeneral.map((item) => (
               <StatCard
                 key={item.titulo}
@@ -200,6 +201,32 @@ export function DashboardPage() {
                 Ir a cobranza
                 <ArrowRight size={15} />
               </Link>
+            </article>
+
+            <article className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-blue-700">Monto facturado</p>
+                <BadgeDollarSign size={22} className="text-blue-700" />
+              </div>
+              <h3 className="mt-3 text-3xl font-black text-blue-900">
+                {formatCurrency(data.finanzas.monto_facturado)}
+              </h3>
+              <p className="mt-4 text-sm font-semibold text-blue-700/80">
+                {data.resumen.facturas} facturas · {data.resumen.facturas_pendientes} pendientes
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-amber-700">Pendiente por facturar</p>
+                <FileText size={22} className="text-amber-700" />
+              </div>
+              <h3 className="mt-3 text-3xl font-black text-amber-900">
+                {formatCurrency(data.finanzas.monto_pendiente_facturar)}
+              </h3>
+              <p className="mt-4 text-sm font-semibold text-amber-700/80">
+                Cotizaciones autorizadas todavía sin cobertura total.
+              </p>
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -275,7 +302,7 @@ export function DashboardPage() {
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Autoriza una cotización y conviértela en proyecto.
+                    Crea un proyecto manual o agrupa cotizaciones autorizadas.
                   </p>
                 </div>
               ) : (
@@ -294,7 +321,7 @@ export function DashboardPage() {
                         </Link>
 
                         <p className="mt-1 truncate text-sm text-slate-500">
-                          {proyecto.cotizacion_codigo} ·{" "}
+                          {proyecto.cotizaciones_count} cotización{proyecto.cotizaciones_count === 1 ? "" : "es"} ·{" "}
                           {proyecto.cliente_nombre}
                         </p>
 
@@ -310,7 +337,7 @@ export function DashboardPage() {
                         <ProyectoStatusBadge estado={proyecto.estado} />
 
                         <span className="font-black text-[#17445A]">
-                          {formatCurrency(Number(proyecto.total_cotizacion))}
+                          {formatCurrency(Number(proyecto.total_cotizaciones))}
                         </span>
                       </div>
                     </div>

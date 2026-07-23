@@ -377,6 +377,14 @@ export function CotizacionesPage() {
                             ? ` · ${cotizacion.cliente_empresa}`
                             : ""}
                         </p>
+                        {cotizacion.proyecto !== null && (
+                          <Link
+                            to={`/proyectos/${cotizacion.proyecto}`}
+                            className="mt-1 inline-flex text-xs font-bold text-[#255F7A] hover:underline"
+                          >
+                            Proyecto: {cotizacion.proyecto_nombre}
+                          </Link>
+                        )}
                       </td>
                       <td className="p-4 text-slate-600">
                         {formatTipoCotizacion(cotizacion.tipo)}
@@ -439,16 +447,18 @@ export function CotizacionesPage() {
                               >
                                 <Pencil size={18} />
                               </Link>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setCotizacionToDelete(cotizacion)
-                                }
-                                aria-label="Eliminar cotización"
-                                className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
-                              >
-                                <Trash2 size={18} />
-                              </button>
+                              {cotizacion.proyecto === null && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setCotizacionToDelete(cotizacion)
+                                  }
+                                  aria-label="Eliminar cotización"
+                                  className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
